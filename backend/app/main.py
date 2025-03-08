@@ -3,31 +3,32 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
 import sys
+import os
 import time
 
-from .config.settings import settings
-from .routers.chat import router as chat_router
-from .routers.test_agent import router as test_agent_router
-from .routers.knowledge import router as knowledge_router
+# Setup logging at the very beginning
+log_dir = os.path.dirname(os.path.abspath(__file__))
+log_file_path = os.path.join(log_dir, "app.log")
 
-# Configure logging
-logging_level = getattr(logging, settings.LOG_LEVEL)
+# Configure root logger
 logging.basicConfig(
-    level=logging_level,
+    level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.StreamHandler(sys.stdout)
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(log_file_path, mode='a')
     ]
 )
 
 logger = logging.getLogger(__name__)
+logger.info(f"Logging to file: {log_file_path}")
 
-# Create FastAPI app
-app = FastAPI(
-    title="Agent Builder API",
-    description="API for building agents with Claude",
-    version="1.0.0",
-)
+# Now import the settings and routers
+from .config.settings import settings
+from .routers.chat import router as chat_router
+from .routers.test_agent import router as test_agent_router
+from .routers.knowledge import router as knowledge_router
+from .routers.logs import router as logs_router
 
 # Log environment variables at startup
 logger.info("Starting application with configuration:")
@@ -36,6 +37,13 @@ logger.info(f"LOG_LEVEL: {settings.LOG_LEVEL}")
 logger.info(f"CORS_ORIGINS: {settings.BACKEND_CORS_ORIGINS}")
 # Don't log the actual API key for security reasons
 logger.info(f"CLAUDE_API_KEY set: {'Yes' if settings.CLAUDE_API_KEY else 'No'}")
+
+# Create FastAPI app
+app = FastAPI(
+    title="Agent Builder API",
+    description="API for building agents with Claude",
+    version="1.0.0",
+)
 
 # Set up CORS
 app.add_middleware(
@@ -49,6 +57,10 @@ app.add_middleware(
 # Middleware for logging request timing
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    # Skip logging for log stream requests
+    if "/api/logs/current" in request.url.path:
+        return await call_next(request)
+    
     start_time = time.time()
     
     # Process the request
@@ -75,6 +87,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(chat_router)
 app.include_router(test_agent_router)
 app.include_router(knowledge_router)
+app.include_router(logs_router)
 
 @app.get("/")
 async def root():

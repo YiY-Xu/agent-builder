@@ -80,7 +80,7 @@ const ConfigPanel = () => {
           <div className="config-field">
             <label className="field-label">Knowledge Base</label>
             <div className="field-content">
-              {agentConfig.knowledge_base ? (
+              {agentConfig.knowledge_base && agentConfig.knowledge_base.document_count > 0 ? (
                 <div className="knowledge-info">
                   <p><strong>Documents:</strong> {agentConfig.knowledge_base.document_count}</p>
                   {agentConfig.knowledge_base.file_names && agentConfig.knowledge_base.file_names.length > 0 && (
@@ -90,6 +90,12 @@ const ConfigPanel = () => {
                       ))}
                     </ul>
                   )}
+                  <button 
+                    className="add-knowledge-button"
+                    onClick={() => setShowKnowledgeUpload(true)}
+                  >
+                    Manage Documents
+                  </button>
                 </div>
               ) : (
                 <div className="knowledge-empty">

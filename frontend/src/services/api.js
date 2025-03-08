@@ -351,3 +351,33 @@ export const checkHealth = async () => {
     throw error;
   }
 };
+
+/**
+ * Fetch the current system logs
+ * @returns {Promise<Object>} - Promise resolving to logs object with logs array
+ */
+export const fetchLogs = async () => {
+  try {
+    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+    const response = await fetch(`${API_BASE_URL}/api/logs/current`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(errorData.detail || 'Error fetching logs');
+      } catch (jsonError) {
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+      }
+    }
+    
+    const data = await response.json();
+    console.log('Logs fetched successfully:', data.logs.length);
+    return data;
+  } catch (error) {
+    console.error('Error fetching logs:', error);
+    throw error;
+  }
+};

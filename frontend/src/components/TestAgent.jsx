@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Upload, ArrowLeft, Database, Edit, Save, X } from 'lucide-react';
+import { Send, Upload, ArrowLeft, Database, Edit, Save, X, Terminal, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ChatMessage from './ChatMessage';
 import LoadingIndicator from './LoadingIndicator';
-import { testAgentChat, generateYaml } from '../services/api';
+import { testAgentChat, generateYaml, fetchLogs } from '../services/api';
 import yaml from 'js-yaml';
 import '../styles/components.css';
 
@@ -22,10 +22,16 @@ const TestAgent = () => {
   const [knowledgeBaseType, setKnowledgeBaseType] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('info'); // 'info' or 'logs'
+  const [logs, setLogs] = useState([]);
+  const [isPolling, setIsPolling] = useState(false);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   
   // References
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const logsContainerRef = useRef(null);
+  const pollIntervalRef = useRef(null);
   
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -33,6 +39,69 @@ const TestAgent = () => {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+  
+  // Auto-scroll logs to bottom unless user has scrolled up
+  useEffect(() => {
+    if (logsContainerRef.current) {
+      const element = logsContainerRef.current;
+      const isScrolledToBottom = element.scrollHeight - element.clientHeight <= element.scrollTop + 50;
+      
+      if (isScrolledToBottom) {
+        element.scrollTop = element.scrollHeight;
+      }
+    }
+  }, [logs]);
+  
+  // Load logs when tab changes
+  useEffect(() => {
+    let isMounted = true;
+    
+    const loadLogs = async () => {
+      if (activeTab !== 'logs') return;
+      
+      setIsLoadingLogs(true);
+      try {
+        const response = await fetchLogs();
+        if (isMounted && response && response.logs) {
+          setLogs(response.logs);
+        }
+      } catch (error) {
+        console.error('Error loading logs:', error);
+      } finally {
+        if (isMounted) {
+          setIsLoadingLogs(false);
+        }
+      }
+    };
+    
+    loadLogs();
+    
+    // Start polling when on logs tab
+    if (activeTab === 'logs') {
+      // Initial load
+      loadLogs();
+      
+      // Set up polling
+      setIsPolling(true);
+      pollIntervalRef.current = setInterval(loadLogs, 1000);
+    } else {
+      // Stop polling when not on logs tab
+      setIsPolling(false);
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    }
+    
+    // Cleanup
+    return () => {
+      isMounted = false;
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [activeTab]);
   
   // Handle file upload
   const handleFileUpload = (event) => {
@@ -205,6 +274,287 @@ const TestAgent = () => {
     });
   };
 
+  // Render agent information tab content
+  const renderAgentInfoTab = () => (
+    <div className="config-fields">
+      {/* Agent Name */}
+      <div className="config-field">
+        <label className="field-label">Agent Name</label>
+        {isEditMode ? (
+          <input 
+            type="text" 
+            className="field-input"
+            value={agentConfig.name || ""}
+            onChange={(e) => updateConfigField('name', e.target.value)}
+            placeholder="Enter agent name"
+          />
+        ) : (
+          <div className="field-content">
+            {agentConfig.name || "Unnamed Agent"}
+          </div>
+        )}
+      </div>
+      
+      {/* Agent Description */}
+      <div className="config-field">
+        <label className="field-label">Agent Description</label>
+        {isEditMode ? (
+          <textarea 
+            className="field-textarea"
+            value={agentConfig.description || ""}
+            onChange={(e) => updateConfigField('description', e.target.value)}
+            placeholder="Enter agent description"
+            rows={2}
+          />
+        ) : (
+          <div className="field-content">
+            {agentConfig.description || "No description provided"}
+          </div>
+        )}
+      </div>
+      
+      {/* Agent Instruction */}
+      <div className="config-field">
+        <label className="field-label">Agent Instruction</label>
+        {isEditMode ? (
+          <textarea 
+            className="field-textarea instruction-textarea"
+            value={agentConfig.instruction || ""}
+            onChange={(e) => updateConfigField('instruction', e.target.value)}
+            placeholder="Enter agent instruction"
+            rows={5}
+          />
+        ) : (
+          <div className="field-content instruction-field">
+            {agentConfig.instruction || "No instructions provided"}
+          </div>
+        )}
+      </div>
+      
+      {/* Agent Memory Size */}
+      <div className="config-field">
+        <label className="field-label">Memory Size</label>
+        {isEditMode ? (
+          <input 
+            type="number" 
+            className="field-input memory-input"
+            value={agentConfig.config?.memory_size || agentConfig.memory_size || 10}
+            onChange={(e) => {
+              const value = parseInt(e.target.value);
+              if (agentConfig.config) {
+                updateConfigField('config.memory_size', value);
+              } else {
+                updateConfigField('memory_size', value);
+              }
+            }}
+            min={1}
+            max={100}
+          />
+        ) : (
+          <div className="field-content">
+            {agentConfig.config?.memory_size || agentConfig.memory_size || 10}
+          </div>
+        )}
+      </div>
+      
+      {/* Agent Tools */}
+      <div className="config-field">
+        <label className="field-label">Tools</label>
+        <div className="field-content tools-field">
+          {agentConfig.tools && agentConfig.tools.length > 0 ? (
+            <ul className="tools-list">
+              {agentConfig.tools.map((tool, index) => (
+                <li key={index}>
+                  {isEditMode ? (
+                    <div className="tool-edit">
+                      <input 
+                        type="text" 
+                        className="tool-name-input"
+                        value={tool.name}
+                        onChange={(e) => {
+                          const updatedTools = [...agentConfig.tools];
+                          updatedTools[index] = {
+                            ...updatedTools[index],
+                            name: e.target.value
+                          };
+                          updateConfigField('tools', updatedTools);
+                        }}
+                        placeholder="Tool name"
+                      />
+                      <input 
+                        type="text" 
+                        className="tool-endpoint-input"
+                        value={tool.endpoint}
+                        onChange={(e) => {
+                          const updatedTools = [...agentConfig.tools];
+                          updatedTools[index] = {
+                            ...updatedTools[index],
+                            endpoint: e.target.value
+                          };
+                          updateConfigField('tools', updatedTools);
+                        }}
+                        placeholder="Tool endpoint"
+                      />
+                      <button 
+                        className="remove-tool-button"
+                        onClick={() => {
+                          const updatedTools = agentConfig.tools.filter((_, i) => i !== index);
+                          updateConfigField('tools', updatedTools);
+                        }}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <strong>{tool.name}:</strong> {tool.endpoint}
+                    </>
+                  )}
+                </li>
+              ))}
+              {isEditMode && (
+                <li>
+                  <button 
+                    className="add-tool-button"
+                    onClick={() => {
+                      const updatedTools = [
+                        ...(agentConfig.tools || []),
+                        { name: "New Tool", endpoint: "https://" }
+                      ];
+                      updateConfigField('tools', updatedTools);
+                    }}
+                  >
+                    + Add Tool
+                  </button>
+                </li>
+              )}
+            </ul>
+          ) : (
+            <div>
+              {isEditMode ? (
+                <button 
+                  className="add-tool-button"
+                  onClick={() => {
+                    updateConfigField('tools', [
+                      { name: "New Tool", endpoint: "https://" }
+                    ]);
+                  }}
+                >
+                  + Add Tool
+                </button>
+              ) : (
+                "No tools specified"
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Knowledge Base */}
+      {hasKnowledgeBase && (
+        <div className="config-field">
+          <label className="field-label">Knowledge Base</label>
+          <div className="field-content knowledge-field">
+            <div className="knowledge-info">
+              <div className="knowledge-type">
+                <Database size={16} />
+                <span>
+                  {knowledgeBaseType === 'llamacloud' ? 'LlamaCloud Storage' : 'Local Storage'}
+                </span>
+              </div>
+              
+              {knowledgeBaseType === 'llamacloud' && agentConfig.knowledge_base.index_name && (
+                <div className="knowledge-detail">
+                  <strong>Index:</strong> {agentConfig.knowledge_base.index_name}
+                </div>
+              )}
+              
+              {knowledgeBaseType === 'local' && agentConfig.knowledge_base.local_path && (
+                <div className="knowledge-detail">
+                  <strong>Path:</strong> {agentConfig.knowledge_base.local_path}
+                </div>
+              )}
+              
+              {agentConfig.knowledge_base.document_count && (
+                <div className="knowledge-detail">
+                  <strong>Documents:</strong> {agentConfig.knowledge_base.document_count}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Current file */}
+      {yamlFile && (
+        <div className="config-field">
+          <label className="field-label">Loaded File</label>
+          <div className="field-content">
+            {yamlFile.name}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+  
+  // Render system logs tab content
+  // Render system logs tab content
+  const renderSystemLogsTab = () => (
+    <div className="system-logs-container" ref={logsContainerRef}>
+      {isLoadingLogs && logs.length === 0 ? (
+        <div className="logs-empty-state">
+          <LoadingIndicator />
+          <p>Loading system logs...</p>
+        </div>
+      ) : logs.length === 0 ? (
+        <div className="logs-empty-state">
+          <Terminal size={32} />
+          <p>No system logs available</p>
+        </div>
+      ) : (
+        <>
+          {logs
+            // Filter out unwanted log entries
+            .filter(log => {
+              // Skip log lines that contain "Returning X log lines"
+              if (log.includes("app.routers.logs") && log.includes("Returning") && log.includes("log lines")) {
+                return false;
+              }
+              return true;
+            })
+            .map((log, index) => {
+              // Skip empty lines
+              if (!log || !log.trim()) return null;
+              
+              // Process the log content
+              let logClass = "log-entry";
+              
+              // Add color classes based on log content
+              if (log.includes("INFO")) logClass += " log-info";
+              if (log.includes("WARNING")) logClass += " log-warning";
+              if (log.includes("ERROR")) logClass += " log-error";
+              if (log.includes("DEBUG")) logClass += " log-debug";
+              
+              return (
+                <div 
+                  key={index} 
+                  className={logClass}
+                  dangerouslySetInnerHTML={{
+                    __html: log
+                      // Replace INFO, WARNING, ERROR with colored versions
+                      .replace(/INFO/g, '<span class="log-level-info">INFO</span>')
+                      .replace(/WARNING/g, '<span class="log-level-warning">WARNING</span>')
+                      .replace(/ERROR/g, '<span class="log-level-error">ERROR</span>')
+                      .replace(/DEBUG/g, '<span class="log-level-debug">DEBUG</span>')
+                  }}
+                />
+              );
+            })}
+        </>
+      )}
+    </div>
+  )
+
   return (
     <div className="agent-builder-container">
       {/* Left Panel: Chat Interface */}
@@ -280,13 +630,26 @@ const TestAgent = () => {
         </div>
       </div>
       
-      {/* Right Panel: Agent Information */}
+      {/* Right Panel: Tabbed Interface */}
       <div className="config-panel">
-        <div className="config-header">
-          <h2>Agent Information</h2>
-          {agentConfig && (
-            <div className="config-actions">
-              {isEditMode ? (
+        <div className="config-tabs">
+          <button 
+            className={`tab-button ${activeTab === 'info' ? 'active' : ''}`}
+            onClick={() => setActiveTab('info')}
+          >
+            Agent Information
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'logs' ? 'active' : ''}`}
+            onClick={() => setActiveTab('logs')}
+          >
+            System Logs
+          </button>
+          
+          {/* Action buttons that change based on the active tab */}
+          <div className="config-actions">
+            {activeTab === 'info' && agentConfig ? (
+              isEditMode ? (
                 <>
                   <button 
                     className="action-button save-button"
@@ -313,236 +676,41 @@ const TestAgent = () => {
                   <Edit size={18} />
                   <span>Edit</span>
                 </button>
-              )}
-            </div>
-          )}
+              )
+            ) : activeTab === 'logs' ? (
+              <button 
+                className="action-button refresh-button"
+                onClick={async () => {
+                  setIsLoadingLogs(true);
+                  try {
+                    const response = await fetchLogs();
+                    if (response && response.logs) {
+                      setLogs(response.logs);
+                    }
+                  } catch (error) {
+                    console.error('Error refreshing logs:', error);
+                  } finally {
+                    setIsLoadingLogs(false);
+                  }
+                }}
+                disabled={isLoadingLogs}
+              >
+                {isLoadingLogs ? <LoadingIndicator size={16} /> : <RefreshCw size={18} />}
+                <span>{isLoadingLogs ? 'Loading...' : 'Refresh'}</span>
+              </button>
+            ) : null}
+          </div>
         </div>
         
-        {!agentConfig ? (
-          <div className="empty-state">
-            <p>Upload a YAML file to view agent details</p>
-          </div>
-        ) : (
-          <div className="config-fields">
-            {/* Agent Name */}
-            <div className="config-field">
-              <label className="field-label">Agent Name</label>
-              {isEditMode ? (
-                <input 
-                  type="text" 
-                  className="field-input"
-                  value={agentConfig.name || ""}
-                  onChange={(e) => updateConfigField('name', e.target.value)}
-                  placeholder="Enter agent name"
-                />
-              ) : (
-                <div className="field-content">
-                  {agentConfig.name || "Unnamed Agent"}
-                </div>
-              )}
+        <div className="tab-content">
+          {!agentConfig && activeTab === 'info' ? (
+            <div className="empty-state">
+              <p>Upload a YAML file to view agent details</p>
             </div>
-            
-            {/* Agent Description */}
-            <div className="config-field">
-              <label className="field-label">Agent Description</label>
-              {isEditMode ? (
-                <textarea 
-                  className="field-textarea"
-                  value={agentConfig.description || ""}
-                  onChange={(e) => updateConfigField('description', e.target.value)}
-                  placeholder="Enter agent description"
-                  rows={2}
-                />
-              ) : (
-                <div className="field-content">
-                  {agentConfig.description || "No description provided"}
-                </div>
-              )}
-            </div>
-            
-            {/* Agent Instruction */}
-            <div className="config-field">
-              <label className="field-label">Agent Instruction</label>
-              {isEditMode ? (
-                <textarea 
-                  className="field-textarea instruction-textarea"
-                  value={agentConfig.instruction || ""}
-                  onChange={(e) => updateConfigField('instruction', e.target.value)}
-                  placeholder="Enter agent instruction"
-                  rows={5}
-                />
-              ) : (
-                <div className="field-content instruction-field">
-                  {agentConfig.instruction || "No instructions provided"}
-                </div>
-              )}
-            </div>
-            
-            {/* Agent Memory Size */}
-            <div className="config-field">
-              <label className="field-label">Memory Size</label>
-              {isEditMode ? (
-                <input 
-                  type="number" 
-                  className="field-input memory-input"
-                  value={agentConfig.config?.memory_size || agentConfig.memory_size || 10}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value);
-                    if (agentConfig.config) {
-                      updateConfigField('config.memory_size', value);
-                    } else {
-                      updateConfigField('memory_size', value);
-                    }
-                  }}
-                  min={1}
-                  max={100}
-                />
-              ) : (
-                <div className="field-content">
-                  {agentConfig.config?.memory_size || agentConfig.memory_size || 10}
-                </div>
-              )}
-            </div>
-            
-            {/* Agent Tools */}
-            <div className="config-field">
-              <label className="field-label">Tools</label>
-              <div className="field-content tools-field">
-                {agentConfig.tools && agentConfig.tools.length > 0 ? (
-                  <ul className="tools-list">
-                    {agentConfig.tools.map((tool, index) => (
-                      <li key={index}>
-                        {isEditMode ? (
-                          <div className="tool-edit">
-                            <input 
-                              type="text" 
-                              className="tool-name-input"
-                              value={tool.name}
-                              onChange={(e) => {
-                                const updatedTools = [...agentConfig.tools];
-                                updatedTools[index] = {
-                                  ...updatedTools[index],
-                                  name: e.target.value
-                                };
-                                updateConfigField('tools', updatedTools);
-                              }}
-                              placeholder="Tool name"
-                            />
-                            <input 
-                              type="text" 
-                              className="tool-endpoint-input"
-                              value={tool.endpoint}
-                              onChange={(e) => {
-                                const updatedTools = [...agentConfig.tools];
-                                updatedTools[index] = {
-                                  ...updatedTools[index],
-                                  endpoint: e.target.value
-                                };
-                                updateConfigField('tools', updatedTools);
-                              }}
-                              placeholder="Tool endpoint"
-                            />
-                            <button 
-                              className="remove-tool-button"
-                              onClick={() => {
-                                const updatedTools = agentConfig.tools.filter((_, i) => i !== index);
-                                updateConfigField('tools', updatedTools);
-                              }}
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <strong>{tool.name}:</strong> {tool.endpoint}
-                          </>
-                        )}
-                      </li>
-                    ))}
-                    {isEditMode && (
-                      <li>
-                        <button 
-                          className="add-tool-button"
-                          onClick={() => {
-                            const updatedTools = [
-                              ...(agentConfig.tools || []),
-                              { name: "New Tool", endpoint: "https://" }
-                            ];
-                            updateConfigField('tools', updatedTools);
-                          }}
-                        >
-                          + Add Tool
-                        </button>
-                      </li>
-                    )}
-                  </ul>
-                ) : (
-                  <div>
-                    {isEditMode ? (
-                      <button 
-                        className="add-tool-button"
-                        onClick={() => {
-                          updateConfigField('tools', [
-                            { name: "New Tool", endpoint: "https://" }
-                          ]);
-                        }}
-                      >
-                        + Add Tool
-                      </button>
-                    ) : (
-                      "No tools specified"
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Knowledge Base */}
-            {hasKnowledgeBase && (
-              <div className="config-field">
-                <label className="field-label">Knowledge Base</label>
-                <div className="field-content knowledge-field">
-                  <div className="knowledge-info">
-                    <div className="knowledge-type">
-                      <Database size={16} />
-                      <span>
-                        {knowledgeBaseType === 'llamacloud' ? 'LlamaCloud Storage' : 'Local Storage'}
-                      </span>
-                    </div>
-                    
-                    {knowledgeBaseType === 'llamacloud' && agentConfig.knowledge_base.index_name && (
-                      <div className="knowledge-detail">
-                        <strong>Index:</strong> {agentConfig.knowledge_base.index_name}
-                      </div>
-                    )}
-                    
-                    {knowledgeBaseType === 'local' && agentConfig.knowledge_base.local_path && (
-                      <div className="knowledge-detail">
-                        <strong>Path:</strong> {agentConfig.knowledge_base.local_path}
-                      </div>
-                    )}
-                    
-                    {agentConfig.knowledge_base.document_count && (
-                      <div className="knowledge-detail">
-                        <strong>Documents:</strong> {agentConfig.knowledge_base.document_count}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Current file */}
-            {yamlFile && (
-              <div className="config-field">
-                <label className="field-label">Loaded File</label>
-                <div className="field-content">
-                  {yamlFile.name}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+          ) : (
+            activeTab === 'info' ? renderAgentInfoTab() : renderSystemLogsTab()
+          )}
+        </div>
       </div>
     </div>
   );
