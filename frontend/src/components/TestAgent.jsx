@@ -217,6 +217,8 @@ const TestAgent = () => {
 
   // Save configuration changes
   // Save configuration changes
+  // Save configuration changes
+  // Save configuration changes
   const saveConfigChanges = async () => {
     try {
       setIsSaving(true);
@@ -234,33 +236,19 @@ const TestAgent = () => {
       
       setYamlFile(newYamlFile);
       
-      // Reset the chat with a welcome message
-      setMessages([{
-        role: 'assistant',
-        content: `Hello! I am ${agentConfig.name || 'your agent'}. ${agentConfig.description || 'How can I help you today?'}${hasKnowledgeBase ? "\n\nI have access to a knowledge base that I can use to answer your questions." : ""}`
-      }]);
+      // Clear previous messages - this is important!
+      setMessages([]);
       
-      // Important: Re-test the agent with the updated config
-      try {
-        // You might need a simple test message to verify the agent works
-        const testResponse = await testAgentChat({
-          message: "SYSTEM: Agent configuration updated. Please acknowledge.",
-          agent_config: agentConfig,
-          history: []
-        });
-        
-        // Add confirmation message
+      // Reset the chat with a welcome message to reinitialize the context
+      setTimeout(() => {
         setMessages([{
           role: 'assistant',
           content: `Hello! I am ${agentConfig.name || 'your agent'}. ${agentConfig.description || 'How can I help you today?'}${hasKnowledgeBase ? "\n\nI have access to a knowledge base that I can use to answer your questions." : ""}`
         }, {
-          role: 'system',
+          role: 'assistant',
           content: 'Agent configuration updated successfully.'
         }]);
-      } catch (testErr) {
-        console.error('Error testing updated agent:', testErr);
-        setError(`Warning: Agent was updated but couldn't be tested: ${testErr.message}`);
-      }
+      }, 100);
       
       // Exit edit mode
       setIsEditMode(false);
