@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/frontend.Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_BASE_URL=http://localhost:8000
+    depends_on:
+      - backend
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/backend.Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - CLAUDE_MODEL=claude-3-7-sonnet-20250219
+      - LOG_LEVEL=INFO
+    volumes:
+      - ../backend:/app
