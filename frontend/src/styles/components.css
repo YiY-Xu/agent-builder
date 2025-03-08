@@ -600,3 +600,151 @@
     cursor: pointer;
     opacity: 0.9;
   }
+
+  /* Edit mode styles */
+.config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 16px;
+}
+
+.config-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.edit-button {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.edit-button:hover {
+  background-color: #e5e7eb;
+}
+
+.save-button {
+  background-color: #4f46e5;
+  color: white;
+}
+
+.save-button:hover:not(:disabled) {
+  background-color: #4338ca;
+}
+
+.cancel-button {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.cancel-button:hover:not(:disabled) {
+  background-color: #e5e7eb;
+}
+
+.action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Form field styles */
+.field-input, .field-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-top: 4px;
+  background-color: white;
+}
+
+.field-textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.instruction-textarea {
+  min-height: 100px;
+}
+
+.memory-input {
+  max-width: 80px;
+}
+
+/* Tool editing styles */
+.tool-edit {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.tool-name-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.tool-endpoint-input {
+  flex: 2;
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.remove-tool-button {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border: none;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.remove-tool-button:hover {
+  background-color: #fecaca;
+}
+
+.add-tool-button {
+  background-color: #f3f4f6;
+  color: #4f46e5;
+  border: 1px dashed #d1d5db;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.add-tool-button:hover {
+  background-color: #e5e7eb;
+}
+
+/* Disabled chat input during edit mode */
+.chat-input:disabled {
+  background-color: #f9fafb;
+  cursor: not-allowed;
+}

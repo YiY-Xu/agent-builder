@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Upload, ArrowLeft, Database } from 'lucide-react';
+import { Send, Upload, ArrowLeft, Database, Edit, Save, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ChatMessage from './ChatMessage';
 import LoadingIndicator from './LoadingIndicator';
-import { testAgentChat } from '../services/api';
+import { testAgentChat, generateYaml } from '../services/api';
 import yaml from 'js-yaml';
 import '../styles/components.css';
 
@@ -20,6 +20,8 @@ const TestAgent = () => {
   const [yamlFile, setYamlFile] = useState(null);
   const [hasKnowledgeBase, setHasKnowledgeBase] = useState(false);
   const [knowledgeBaseType, setKnowledgeBaseType] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   // References
   const messagesEndRef = useRef(null);
@@ -134,6 +136,75 @@ const TestAgent = () => {
     fileInputRef.current?.click();
   };
 
+  // Toggle edit mode
+  const toggleEditMode = () => {
+    if (isEditMode) {
+      // Cancel edit mode, revert changes
+      setIsEditMode(false);
+    } else {
+      setIsEditMode(true);
+    }
+  };
+
+  // Save configuration changes
+  const saveConfigChanges = async () => {
+    try {
+      setIsSaving(true);
+      setError(null);
+
+      // Generate new YAML
+      const yamlContent = await generateYaml(agentConfig);
+      
+      // Create a new file object with the updated YAML
+      const newYamlFile = new File(
+        [yamlContent], 
+        yamlFile ? yamlFile.name : 'agent-config.yaml', 
+        { type: 'text/yaml' }
+      );
+      
+      setYamlFile(newYamlFile);
+      
+      // Reset the chat with a welcome message
+      setMessages([{
+        role: 'assistant',
+        content: `Hello! I am ${agentConfig.name || 'your agent'}. ${agentConfig.description || 'How can I help you today?'}${hasKnowledgeBase ? "\n\nI have access to a knowledge base that I can use to answer your questions." : ""}`
+      }]);
+      
+      // Exit edit mode
+      setIsEditMode(false);
+    } catch (err) {
+      console.error('Error saving configuration:', err);
+      setError(`Error saving configuration: ${err.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Update a field in the agent config
+  const updateConfigField = (field, value) => {
+    if (!isEditMode) return;
+    
+    setAgentConfig(prev => {
+      // Handle nested fields
+      if (field.includes('.')) {
+        const [parent, child] = field.split('.');
+        return {
+          ...prev,
+          [parent]: {
+            ...prev[parent],
+            [child]: value
+          }
+        };
+      }
+      
+      // Handle top-level fields
+      return {
+        ...prev,
+        [field]: value
+      };
+    });
+  };
+
   return (
     <div className="agent-builder-container">
       {/* Left Panel: Chat Interface */}
@@ -195,14 +266,14 @@ const TestAgent = () => {
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            disabled={isLoading || !agentConfig}
+            disabled={isLoading || !agentConfig || isEditMode}
             rows={1}
           />
           
           <button 
-            className={`send-button ${!inputMessage.trim() || isLoading || !agentConfig ? 'disabled' : ''}`}
+            className={`send-button ${!inputMessage.trim() || isLoading || !agentConfig || isEditMode ? 'disabled' : ''}`}
             onClick={handleSendMessage}
-            disabled={!inputMessage.trim() || isLoading || !agentConfig}
+            disabled={!inputMessage.trim() || isLoading || !agentConfig || isEditMode}
           >
             <Send size={20} />
           </button>
@@ -213,6 +284,38 @@ const TestAgent = () => {
       <div className="config-panel">
         <div className="config-header">
           <h2>Agent Information</h2>
+          {agentConfig && (
+            <div className="config-actions">
+              {isEditMode ? (
+                <>
+                  <button 
+                    className="action-button save-button"
+                    onClick={saveConfigChanges}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? <LoadingIndicator size={16} /> : <Save size={18} />}
+                    <span>Save</span>
+                  </button>
+                  <button 
+                    className="action-button cancel-button"
+                    onClick={toggleEditMode}
+                    disabled={isSaving}
+                  >
+                    <X size={18} />
+                    <span>Cancel</span>
+                  </button>
+                </>
+              ) : (
+                <button 
+                  className="action-button edit-button"
+                  onClick={toggleEditMode}
+                >
+                  <Edit size={18} />
+                  <span>Edit</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
         
         {!agentConfig ? (
@@ -224,33 +327,81 @@ const TestAgent = () => {
             {/* Agent Name */}
             <div className="config-field">
               <label className="field-label">Agent Name</label>
-              <div className="field-content">
-                {agentConfig.name || "Unnamed Agent"}
-              </div>
+              {isEditMode ? (
+                <input 
+                  type="text" 
+                  className="field-input"
+                  value={agentConfig.name || ""}
+                  onChange={(e) => updateConfigField('name', e.target.value)}
+                  placeholder="Enter agent name"
+                />
+              ) : (
+                <div className="field-content">
+                  {agentConfig.name || "Unnamed Agent"}
+                </div>
+              )}
             </div>
             
             {/* Agent Description */}
             <div className="config-field">
               <label className="field-label">Agent Description</label>
-              <div className="field-content">
-                {agentConfig.description || "No description provided"}
-              </div>
+              {isEditMode ? (
+                <textarea 
+                  className="field-textarea"
+                  value={agentConfig.description || ""}
+                  onChange={(e) => updateConfigField('description', e.target.value)}
+                  placeholder="Enter agent description"
+                  rows={2}
+                />
+              ) : (
+                <div className="field-content">
+                  {agentConfig.description || "No description provided"}
+                </div>
+              )}
             </div>
             
             {/* Agent Instruction */}
             <div className="config-field">
               <label className="field-label">Agent Instruction</label>
-              <div className="field-content instruction-field">
-                {agentConfig.instruction || "No instructions provided"}
-              </div>
+              {isEditMode ? (
+                <textarea 
+                  className="field-textarea instruction-textarea"
+                  value={agentConfig.instruction || ""}
+                  onChange={(e) => updateConfigField('instruction', e.target.value)}
+                  placeholder="Enter agent instruction"
+                  rows={5}
+                />
+              ) : (
+                <div className="field-content instruction-field">
+                  {agentConfig.instruction || "No instructions provided"}
+                </div>
+              )}
             </div>
             
             {/* Agent Memory Size */}
             <div className="config-field">
               <label className="field-label">Memory Size</label>
-              <div className="field-content">
-                {agentConfig.config?.memory_size || agentConfig.memory_size || 10}
-              </div>
+              {isEditMode ? (
+                <input 
+                  type="number" 
+                  className="field-input memory-input"
+                  value={agentConfig.config?.memory_size || agentConfig.memory_size || 10}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value);
+                    if (agentConfig.config) {
+                      updateConfigField('config.memory_size', value);
+                    } else {
+                      updateConfigField('memory_size', value);
+                    }
+                  }}
+                  min={1}
+                  max={100}
+                />
+              ) : (
+                <div className="field-content">
+                  {agentConfig.config?.memory_size || agentConfig.memory_size || 10}
+                </div>
+              )}
             </div>
             
             {/* Agent Tools */}
@@ -261,12 +412,87 @@ const TestAgent = () => {
                   <ul className="tools-list">
                     {agentConfig.tools.map((tool, index) => (
                       <li key={index}>
-                        <strong>{tool.name}:</strong> {tool.endpoint}
+                        {isEditMode ? (
+                          <div className="tool-edit">
+                            <input 
+                              type="text" 
+                              className="tool-name-input"
+                              value={tool.name}
+                              onChange={(e) => {
+                                const updatedTools = [...agentConfig.tools];
+                                updatedTools[index] = {
+                                  ...updatedTools[index],
+                                  name: e.target.value
+                                };
+                                updateConfigField('tools', updatedTools);
+                              }}
+                              placeholder="Tool name"
+                            />
+                            <input 
+                              type="text" 
+                              className="tool-endpoint-input"
+                              value={tool.endpoint}
+                              onChange={(e) => {
+                                const updatedTools = [...agentConfig.tools];
+                                updatedTools[index] = {
+                                  ...updatedTools[index],
+                                  endpoint: e.target.value
+                                };
+                                updateConfigField('tools', updatedTools);
+                              }}
+                              placeholder="Tool endpoint"
+                            />
+                            <button 
+                              className="remove-tool-button"
+                              onClick={() => {
+                                const updatedTools = agentConfig.tools.filter((_, i) => i !== index);
+                                updateConfigField('tools', updatedTools);
+                              }}
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <strong>{tool.name}:</strong> {tool.endpoint}
+                          </>
+                        )}
                       </li>
                     ))}
+                    {isEditMode && (
+                      <li>
+                        <button 
+                          className="add-tool-button"
+                          onClick={() => {
+                            const updatedTools = [
+                              ...(agentConfig.tools || []),
+                              { name: "New Tool", endpoint: "https://" }
+                            ];
+                            updateConfigField('tools', updatedTools);
+                          }}
+                        >
+                          + Add Tool
+                        </button>
+                      </li>
+                    )}
                   </ul>
                 ) : (
-                  "No tools specified"
+                  <div>
+                    {isEditMode ? (
+                      <button 
+                        className="add-tool-button"
+                        onClick={() => {
+                          updateConfigField('tools', [
+                            { name: "New Tool", endpoint: "https://" }
+                          ]);
+                        }}
+                      >
+                        + Add Tool
+                      </button>
+                    ) : (
+                      "No tools specified"
+                    )}
+                  </div>
                 )}
               </div>
             </div>
