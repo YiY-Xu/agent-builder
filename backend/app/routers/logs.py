@@ -73,6 +73,7 @@ async def stream_logs():
 async def get_current_logs():
     """
     Get the current system logs from the log file.
+    Returns only the latest 300 lines.
     
     Returns:
         dict: Dictionary containing log lines
@@ -85,13 +86,13 @@ async def get_current_logs():
                 f.write("Log file initialized\n")
             return {"logs": ["Log file initialized"]}
         
-        # Read the last 500 lines of the log file
+        # Read the last 300 lines of the log file
         with open(LOG_FILE_PATH, 'r') as file:
             # Read all lines and reverse them
             all_lines = file.readlines()
             
-            # Take the last 500 lines
-            lines = all_lines[-500:] if len(all_lines) > 500 else all_lines
+            # Take the last 300 lines
+            lines = all_lines[-300:] if len(all_lines) > 300 else all_lines
             
             # Strip newlines
             lines = [line.rstrip() for line in lines]

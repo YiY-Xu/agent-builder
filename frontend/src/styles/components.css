@@ -937,3 +937,89 @@
 .refresh-logs-button {
   display: none;
 }
+
+/* Mode toggle button */
+.mode-toggle-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #e0e0e0;
+  background: white;
+  color: #374151;  /* Added explicit text color for normal mode */
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: auto;
+}
+
+.mode-toggle-button:hover {
+  background: #f5f5f5;
+}
+
+.mode-toggle-button.debug-mode {
+  background: #e8f5e9;
+  border-color: #81c784;
+  color: #2e7d32;
+}
+
+.mode-toggle-button.debug-mode:hover {
+  background: #c8e6c9;
+}
+
+.mode-toggle-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mode-toggle-button svg {
+  transition: transform 0.2s ease;
+  color: currentColor;  /* Make sure icon inherits text color */
+}
+
+.mode-toggle-button:hover svg {
+  transform: scale(1.1);
+}
+
+/* Logs styles */
+.logs-container {
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+  background: #1a1a1a;
+  color: #e0e0e0;
+  font-family: monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.logs-info {
+  padding: 8px;
+  margin-bottom: 12px;
+  background: #2d3748;
+  border-radius: 4px;
+  color: #cbd5e1;
+  font-size: 12px;
+  text-align: center;
+}
+
+.loading-logs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  padding: 16px;
+  color: #cbd5e1;
+}
+
+.log-line {
+  padding: 2px 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.no-logs {
+  text-align: center;
+  padding: 16px;
+  color: #718096;
+}

@@ -33,8 +33,10 @@ def get_system_prompt(agent_config: Union[Dict[str, Any], BaseModel]) -> str:
         
         if has_knowledge_base:
             knowledge_base_prompt = """
-6. **Knowledge Base** - External documents to help the agent provide better responses
+7. **Knowledge Base** - External documents to help the agent provide better responses
 """
+        else:
+            knowledge_base_prompt = ""
         
         # Additional knowledge base instructions if needed
         knowledge_base_instructions = ""
@@ -71,6 +73,19 @@ After collecting the main information, you can ask if the user would like to enh
 Just prompt them if they want to add knowledge, and if they say yes, tell them to use the upload interface in the right panel.
 """
         
+        # Debug mode instructions
+        debug_mode_instructions = """
+## Debug Mode
+
+When configured in debug mode, the agent will expose its reasoning process. In debug mode, the agent should:
+
+1. Show its thought process for query decomposition decisions
+2. Reference which knowledge documents it's using (if any)
+3. Explain why it selected particular tools for queries
+
+The debug mode is designed for transparency and agent improvement, allowing users to understand how their agent makes decisions.
+"""
+        
         system_prompt = f"""
 You are an AI assistant specializing in helping users create custom agents. Your job is to guide the user through creating an agent configuration step by step. The final goal is to produce a YAML configuration file that can be used with an agent framework.
 
@@ -82,11 +97,14 @@ Guide the user through collecting the following information in a conversational 
 2. **Agent Description** - A brief description of what the agent does
 3. **Agent Instruction** - Detailed instructions for how the agent should behave and respond
 4. **Agent Memory Size** - How many past messages the agent should remember (default is 10)
-5. **Agent Tools** - External APIs or tools the agent can use (format: "API Name: Endpoint"){knowledge_base_prompt}
+5. **Agent Tools** - External APIs or tools the agent can use (format: "API Name: Endpoint")
+6. **Agent Mode** - Whether the agent operates in "normal" mode or "debug" mode (default is "normal"){knowledge_base_prompt}
 
 ## Current Agent Configuration
 
 {config_json}
+
+{debug_mode_instructions}
 
 {knowledge_base_instructions}
 
@@ -96,6 +114,7 @@ Guide the user through collecting the following information in a conversational 
 - Be patient and encouraging
 - Explain why each piece of information is important
 - Extract information from the user's responses to build the configuration
+- When discussing agent mode, explain the difference between normal and debug modes
 - When all required information is collected, ask if they would like to add document knowledge to their agent
 - If they want to add knowledge, inform them they can upload documents in the right panel
 - DO NOT ask for file paths, storage locations, or any technical storage details
@@ -139,6 +158,7 @@ true
 - **instruction**: Detailed instructions for the agent's behavior (string)
 - **memory_size**: Number of messages to remember in conversation history (number)
 - **tools**: Array of tools with name and endpoint properties (array of objects)
+- **mode**: The agent's operating mode - "normal" or "debug" (string, default: "normal")
 - **knowledge_base**: Information about the agent's knowledge sources (handled by the application)
 
 ## Example Tools Format
@@ -166,6 +186,18 @@ Or for adding a single tool to existing tools:
 [/CONFIG_UPDATE]
 ```
 
+## Agent Mode Example
+
+When setting the agent mode:
+```
+[CONFIG_UPDATE]
+{{
+  "field": "mode",
+  "value": "debug"
+}}
+[/CONFIG_UPDATE]
+```
+
 ## Special Instructions
 
 - If this is the first message and the user hasn't provided a name yet, ask for the agent name
@@ -174,6 +206,8 @@ Or for adding a single tool to existing tools:
 - If a user's input is ambiguous, make your best guess about what field they're referring to
 - If user's input contains multiple pieces of information, update multiple fields
 - Always remember to include the special tags for config updates and YAML generation
+- When discussing mode selection, explain that debug mode provides detailed reasoning but normal mode is more concise
+- Explain that users can toggle between modes as needed without regenerating the agent
 - After collecting the core information, ask if they would like to enhance their agent with document knowledge
 - If they say yes, tell them to upload documents using the interface in the right panel
 - NEVER ask for path information or storage details - this is all handled by the application

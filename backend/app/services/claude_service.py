@@ -138,7 +138,10 @@ class ClaudeService:
                 "system": system_prompt
             }
             
-            logger.info(f"Using custom system prompt: {system_prompt[:100]}...")
+            # Log the full system prompt for debugging
+            logger.info("Using custom system prompt:")
+            for line in system_prompt.split('\n'):
+                logger.info(f"  {line}")
             
             async with httpx.AsyncClient() as client:
                 response = await client.post(

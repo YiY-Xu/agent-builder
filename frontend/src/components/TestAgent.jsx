@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Upload, ArrowLeft, Database, Edit, Save, X, Terminal, RefreshCw } from 'lucide-react';
+import { Send, Upload, ArrowLeft, Database, Edit, Save, X, Terminal, RefreshCw, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ChatMessage from './ChatMessage';
 import LoadingIndicator from './LoadingIndicator';
-import { testAgentChat, generateYaml, fetchLogs, connectToLogsSSE } from '../services/api';
+import { testAgentChat, generateYaml, fetchLogs, connectToLogsSSE, toggleMode } from '../services/api';
 import yaml from 'js-yaml';
 import '../styles/components.css';
 
@@ -537,57 +537,23 @@ const TestAgent = () => {
   
   // Render system logs tab content
   const renderSystemLogsTab = () => (
-    <div className="system-logs-container" ref={logsContainerRef}>
-      {isLoadingLogs && logs.length === 0 ? (
-        <div className="logs-empty-state">
+    <div className="logs-container" ref={logsContainerRef}>
+      <div className="logs-info">
+        Showing the latest 300 lines of system logs
+      </div>
+      {isLoadingLogs ? (
+        <div className="loading-logs">
           <LoadingIndicator />
-          <p>Loading system logs...</p>
+          <span>Loading logs...</span>
         </div>
-      ) : logs.length === 0 ? (
-        <div className="logs-empty-state">
-          <Terminal size={32} />
-          <p>No system logs available</p>
-        </div>
+      ) : logs.length > 0 ? (
+        logs.map((log, index) => (
+          <div key={index} className="log-line">
+            {log}
+          </div>
+        ))
       ) : (
-        <>
-          {logs
-            // Filter out unwanted log entries
-            .filter(log => {
-              // Skip log lines that contain "Returning X log lines"
-              if (log.includes("app.routers.logs") && log.includes("Returning") && log.includes("log lines")) {
-                return false;
-              }
-              return true;
-            })
-            .map((log, index) => {
-              // Skip empty lines
-              if (!log || !log.trim()) return null;
-              
-              // Process the log content
-              let logClass = "log-entry";
-              
-              // Add color classes based on log content
-              if (log.includes("INFO")) logClass += " log-info";
-              if (log.includes("WARNING")) logClass += " log-warning";
-              if (log.includes("ERROR")) logClass += " log-error";
-              if (log.includes("DEBUG")) logClass += " log-debug";
-              
-              return (
-                <div 
-                  key={index} 
-                  className={logClass}
-                  dangerouslySetInnerHTML={{
-                    __html: log
-                      // Replace INFO, WARNING, ERROR with colored versions
-                      .replace(/INFO/g, '<span class="log-level-info">INFO</span>')
-                      .replace(/WARNING/g, '<span class="log-level-warning">WARNING</span>')
-                      .replace(/ERROR/g, '<span class="log-level-error">ERROR</span>')
-                      .replace(/DEBUG/g, '<span class="log-level-debug">DEBUG</span>')
-                  }}
-                />
-              );
-            })}
-        </>
+        <div className="no-logs">No logs available</div>
       )}
     </div>
   )
@@ -602,6 +568,50 @@ const TestAgent = () => {
             <span>Back to Builder</span>
           </Link>
           <h2>{agentConfig?.name || 'Test Your Agent'}</h2>
+          {agentConfig && (
+            <button 
+              className={`mode-toggle-button ${agentConfig.config?.mode === 'debug' ? 'debug-mode' : ''}`}
+              onClick={async () => {
+                try {
+                  setIsLoading(true);
+                  const currentMode = agentConfig.config?.mode || 'normal';
+                  const newMode = await toggleMode(currentMode);
+                  
+                  // Update just the mode in the existing config
+                  setAgentConfig(prev => ({
+                    ...prev,
+                    config: {
+                      ...prev.config,
+                      mode: newMode
+                    }
+                  }));
+                  
+                  // Add a system message about the mode change
+                  setMessages(prev => [...prev, {
+                    role: 'assistant',
+                    content: `Mode switched to ${newMode.toUpperCase()}`
+                  }]);
+                } catch (error) {
+                  setError(`Error toggling mode: ${error.message}`);
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              disabled={isLoading}
+            >
+              {agentConfig.config?.mode === 'debug' ? (
+                <>
+                  <ToggleRight size={18} />
+                  <span>Debug Mode</span>
+                </>
+              ) : (
+                <>
+                  <ToggleLeft size={18} />
+                  <span>Normal Mode</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
         
         <div className="messages-container">

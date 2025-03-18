@@ -24,6 +24,7 @@ export const sendMessage = async (messages, agentConfig) => {
       description: agentConfig.description || '',
       instruction: agentConfig.instruction || '',
       memory_size: agentConfig.memory_size || 10,
+      mode: agentConfig.mode || 'normal',
       tools: agentConfig.tools || [],
       knowledge_base: agentConfig.knowledge_base || {
         storage_type: 'llamacloud',
@@ -289,28 +290,12 @@ export const testAgentChat = async ({ message, agent_config, history }) => {
  */
 export const generateYaml = async (agentConfig) => {
   try {
-    // Format agent config to match backend's expectations
-    const formattedAgentConfig = {
-      name: agentConfig.name || '',
-      description: agentConfig.description || '',
-      instruction: agentConfig.instruction || '',
-      memory_size: agentConfig.memory_size || 10,
-      tools: agentConfig.tools || [],
-      knowledge_base: agentConfig.knowledge_base || {
-        storage_type: 'llamacloud',
-        index_name: null,
-        project_name: null,
-        local_path: null,
-        document_count: 0
-      }
-    };
-
     const response = await fetch(`${API_BASE_URL}/api/yaml`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(formattedAgentConfig),
+      body: JSON.stringify(agentConfig),
     });
 
     if (!response.ok) {
@@ -414,4 +399,43 @@ export const connectToLogsSSE = (onMessage) => {
   };
   
   return eventSource;
+};
+
+/**
+ * Toggle the agent's mode between normal and debug
+ * @param {string} currentMode - Current mode (normal or debug)
+ * @returns {Promise<string>} - Promise that resolves to the new mode
+ */
+export const toggleMode = async (currentMode) => {
+  try {
+    console.log('Toggling mode from:', currentMode);
+    
+    const response = await fetch(`${API_BASE_URL}/api/toggle-mode`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        current_mode: currentMode
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(errorData.detail || 'Error toggling mode');
+      } catch (jsonError) {
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+      }
+    }
+
+    const result = await response.json();
+    return result.new_mode;
+  } catch (error) {
+    console.error('Error toggling mode:', error);
+    throw error;
+  }
 };

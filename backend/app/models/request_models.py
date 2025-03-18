@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, field_validator
 from typing import List, Dict, Any, Optional, Union
 
 
@@ -20,6 +20,7 @@ class AgentConfig(BaseModel):
     description: Optional[str] = Field(None, description="Description of the agent's purpose")
     instruction: Optional[str] = Field(None, description="Detailed instructions for the agent")
     memory_size: int = Field(10, description="Number of messages to remember in conversation history")
+    mode: str = Field("normal", description="Agent operating mode (normal or debug)")
     tools: List[AgentTool] = Field(default_factory=list, description="List of tools/APIs the agent can use")
     
     class Config:
@@ -35,7 +36,8 @@ class ChatRequest(BaseModel):
     messages: List[ChatMessage] = Field(..., description="List of previous messages in the conversation")
     agent_config: AgentConfig = Field(..., description="Current agent configuration")
     
-    @validator('messages')
+    @field_validator('messages')
+    @classmethod
     def validate_messages(cls, v):
         """Validate that there is at least one message"""
         if not v:
