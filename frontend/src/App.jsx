@@ -15,7 +15,7 @@ function App() {
       <AgentProvider>
         <div className="app">
           <header className="app-header">
-            <h1>Claude Agent Builder</h1>
+            <h1>Agent Builder</h1>
             <nav className="app-nav">
               <Link to="/" className="nav-link">Builder</Link>
               <Link to="/test" className="nav-link">Test Agent</Link>
@@ -30,7 +30,7 @@ function App() {
           </main>
           
           <footer className="app-footer">
-            <p>Powered by Claude · {new Date().getFullYear()}</p>
+            <p>Powered by LLMs · {new Date().getFullYear()}</p>
           </footer>
         </div>
       </AgentProvider>

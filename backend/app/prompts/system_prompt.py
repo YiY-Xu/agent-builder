@@ -17,10 +17,7 @@ def get_system_prompt(agent_config: Union[Dict[str, Any], BaseModel]) -> str:
     """
     try:
         # Convert Pydantic model to dict if necessary
-        if hasattr(agent_config, 'dict') and callable(getattr(agent_config, 'dict')):
-            config_dict = agent_config.dict()
-        elif hasattr(agent_config, 'model_dump') and callable(getattr(agent_config, 'model_dump')):
-            # For Pydantic v2
+        if hasattr(agent_config, 'model_dump') and callable(getattr(agent_config, 'model_dump')):
             config_dict = agent_config.model_dump()
         else:
             config_dict = dict(agent_config)

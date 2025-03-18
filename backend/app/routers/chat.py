@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from ..services.claude_service import ClaudeService
-from ..models.request_models import ChatMessage, ChatRequest
+from ..models.request_models import ChatRequest
 from ..models.response_models import ChatResponse
 from ..utils.config_extractor import extract_config_updates, should_generate_yaml, clean_response
 
