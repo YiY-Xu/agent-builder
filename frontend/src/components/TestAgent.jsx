@@ -3,7 +3,7 @@ import { Send, Upload, ArrowLeft, Database, Edit, Save, X, Terminal, RefreshCw }
 import { Link } from 'react-router-dom';
 import ChatMessage from './ChatMessage';
 import LoadingIndicator from './LoadingIndicator';
-import { testAgentChat, generateYaml, fetchLogs } from '../services/api';
+import { testAgentChat, generateYaml, fetchLogs, connectToLogsSSE } from '../services/api';
 import yaml from 'js-yaml';
 import '../styles/components.css';
 
@@ -24,14 +24,12 @@ const TestAgent = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('info'); // 'info' or 'logs'
   const [logs, setLogs] = useState([]);
-  const [isPolling, setIsPolling] = useState(false);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   
   // References
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const logsContainerRef = useRef(null);
-  const pollIntervalRef = useRef(null);
   
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -47,58 +45,90 @@ const TestAgent = () => {
       const isScrolledToBottom = element.scrollHeight - element.clientHeight <= element.scrollTop + 50;
       
       if (isScrolledToBottom) {
-        element.scrollTop = element.scrollHeight;
+        // Use setTimeout to ensure the scroll happens after the DOM update
+        setTimeout(() => {
+          element.scrollTo({
+            top: element.scrollHeight,
+            behavior: 'smooth'
+          });
+        }, 100);
       }
     }
   }, [logs]);
   
+  // Add a scroll event listener to track user scroll position
+  useEffect(() => {
+    const element = logsContainerRef.current;
+    if (!element) return;
+
+    const handleScroll = () => {
+      const isScrolledToBottom = element.scrollHeight - element.clientHeight <= element.scrollTop + 50;
+      // Store the scroll position in a data attribute
+      element.dataset.autoScroll = isScrolledToBottom.toString();
+    };
+
+    element.addEventListener('scroll', handleScroll);
+    return () => element.removeEventListener('scroll', handleScroll);
+  }, []);
+  
+  // Initial scroll to bottom when logs are first loaded
+  useEffect(() => {
+    if (logsContainerRef.current && logs.length > 0) {
+      const element = logsContainerRef.current;
+      setTimeout(() => {
+        element.scrollTo({
+          top: element.scrollHeight,
+          behavior: 'smooth'
+        });
+      }, 100);
+    }
+  }, [logs.length]);
+  
   // Load logs when tab changes
   useEffect(() => {
-    let isMounted = true;
+    let eventSource = null;
+    let isActive = true;
     
-    const loadLogs = async () => {
-      if (activeTab !== 'logs') return;
+    const setupSSE = async () => {
+      if (activeTab !== 'logs' || !isActive) return;
       
       setIsLoadingLogs(true);
+      
       try {
+        // Initial load of logs
         const response = await fetchLogs();
-        if (isMounted && response && response.logs) {
+        if (response && response.logs && isActive) {
           setLogs(response.logs);
         }
+        
+        // Set up SSE connection
+        eventSource = connectToLogsSSE((data) => {
+          if (data.logs && isActive) {
+            setLogs(prevLogs => {
+              // Filter out duplicate logs
+              const newLogs = data.logs.filter(newLog => 
+                !prevLogs.some(prevLog => prevLog === newLog)
+              );
+              return [...prevLogs, ...newLogs];
+            });
+          }
+        });
       } catch (error) {
-        console.error('Error loading logs:', error);
+        console.error('Error setting up logs:', error);
       } finally {
-        if (isMounted) {
+        if (isActive) {
           setIsLoadingLogs(false);
         }
       }
     };
     
-    loadLogs();
-    
-    // Start polling when on logs tab
-    if (activeTab === 'logs') {
-      // Initial load
-      loadLogs();
-      
-      // Set up polling
-      setIsPolling(true);
-      pollIntervalRef.current = setInterval(loadLogs, 1000);
-    } else {
-      // Stop polling when not on logs tab
-      setIsPolling(false);
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
-    }
+    setupSSE();
     
     // Cleanup
     return () => {
-      isMounted = false;
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
+      isActive = false;
+      if (eventSource) {
+        eventSource.close();
       }
     };
   }, [activeTab]);
@@ -215,9 +245,6 @@ const TestAgent = () => {
     }
   };
 
-  // Save configuration changes
-  // Save configuration changes
-  // Save configuration changes
   // Save configuration changes
   const saveConfigChanges = async () => {
     try {
@@ -508,7 +535,6 @@ const TestAgent = () => {
     </div>
   );
   
-  // Render system logs tab content
   // Render system logs tab content
   const renderSystemLogsTab = () => (
     <div className="system-logs-container" ref={logsContainerRef}>

@@ -381,3 +381,37 @@ export const fetchLogs = async () => {
     throw error;
   }
 };
+
+/**
+ * Establish SSE connection for logs
+ * @param {Function} onMessage - Callback function to handle incoming log messages
+ * @returns {EventSource} - EventSource instance
+ */
+export const connectToLogsSSE = (onMessage) => {
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+  const eventSource = new EventSource(`${API_BASE_URL}/api/logs/stream`);
+  
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      onMessage(data);
+    } catch (error) {
+      console.error('Error parsing SSE message:', error);
+    }
+  };
+  
+  eventSource.onerror = (error) => {
+    console.error('SSE connection error:', error);
+    // Don't close the connection immediately, let it try to reconnect
+    if (eventSource.readyState === EventSource.CLOSED) {
+      console.log('SSE connection closed, attempting to reconnect...');
+      // Create a new connection
+      const newEventSource = new EventSource(`${API_BASE_URL}/api/logs/stream`);
+      newEventSource.onmessage = eventSource.onmessage;
+      newEventSource.onerror = eventSource.onerror;
+      return newEventSource;
+    }
+  };
+  
+  return eventSource;
+};
