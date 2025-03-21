@@ -1,0 +1,249 @@
+[
+  {
+    "name": "Flight Booking Service",
+    "sse_url": "http://localhost:5001/api/events",
+    "last_connected": "2025-03-21T15:11:55.328095",
+    "services": [
+      {
+        "id": "1c35e4ce-1dac-4f18-b4db-cdbbcda0d66e",
+        "name": "flight-booking",
+        "capabilities": [
+          "search_flights",
+          "get_flight_details",
+          "book_flight"
+        ],
+        "endpoints": [
+          {
+            "path": "/api/flights/search",
+            "methods": [
+              "GET"
+            ],
+            "description": "Search for flights between origin and destination",
+            "queryParams": [
+              "origin",
+              "destination",
+              "date"
+            ],
+            "capability": "search_flights"
+          },
+          {
+            "path": "/api/flights/{flight_id}/details",
+            "methods": [
+              "GET"
+            ],
+            "description": "Get detailed information about a specific flight",
+            "pathParams": [
+              "flight_id"
+            ],
+            "capability": "get_flight_details"
+          },
+          {
+            "path": "/api/flights/book",
+            "methods": [
+              "POST"
+            ],
+            "description": "Book a flight for one or more passengers",
+            "bodyParams": [
+              "flight_id",
+              "passengers"
+            ],
+            "capability": "book_flight"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Car Rental Service",
+    "sse_url": "http://localhost:5002/api/events",
+    "last_connected": "2025-03-21T15:14:05.582034",
+    "services": [
+      {
+        "id": "8551e521-338b-4bc6-b4d8-13fe6cf8cc0a",
+        "name": "car-rental",
+        "capabilities": [
+          "search_cars",
+          "get_car_details",
+          "reserve_car",
+          "get_car_types"
+        ],
+        "endpoints": [
+          {
+            "path": "/api/cars/available",
+            "methods": [
+              "GET"
+            ],
+            "description": "Search for available cars by location and type",
+            "queryParams": [
+              "location",
+              "type"
+            ],
+            "capability": "search_cars"
+          },
+          {
+            "path": "/api/cars/{car_id}/details",
+            "methods": [
+              "GET"
+            ],
+            "description": "Get detailed information about a specific car",
+            "pathParams": [
+              "car_id"
+            ],
+            "capability": "get_car_details"
+          },
+          {
+            "path": "/api/cars/reserve",
+            "methods": [
+              "POST"
+            ],
+            "description": "Reserve a car for a specific date range",
+            "bodyParams": [
+              "car_id",
+              "start_date",
+              "end_date"
+            ],
+            "capability": "reserve_car"
+          },
+          {
+            "path": "/api/cars/types",
+            "methods": [
+              "GET"
+            ],
+            "description": "Get list of available car types",
+            "capability": "get_car_types"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Hotel Booking Service",
+    "sse_url": "http://localhost:5004/api/events",
+    "last_connected": "2025-03-21T15:15:40.013231",
+    "services": [
+      {
+        "id": "8551e521-338b-4bc6-b4d8-13fe6cf8cc0a",
+        "name": "hotel-booking",
+        "capabilities": [
+          "search_hotels",
+          "get_hotel_details",
+          "book_hotel",
+          "get_hotel_categories",
+          "get_booking"
+        ],
+        "endpoints": [
+          {
+            "path": "/api/hotels/search",
+            "methods": [
+              "GET"
+            ],
+            "description": "Search for hotels by city, dates, and guest count",
+            "queryParams": [
+              "city",
+              "check_in",
+              "check_out",
+              "guests",
+              "category"
+            ],
+            "capability": "search_hotels"
+          },
+          {
+            "path": "/api/hotels/{hotel_id}/details",
+            "methods": [
+              "GET"
+            ],
+            "description": "Get detailed information about a specific hotel",
+            "pathParams": [
+              "hotel_id"
+            ],
+            "capability": "get_hotel_details"
+          },
+          {
+            "path": "/api/hotels/book",
+            "methods": [
+              "POST"
+            ],
+            "description": "Book a hotel room",
+            "bodyParams": [
+              "hotel_id",
+              "room_type",
+              "check_in",
+              "check_out",
+              "guest_name",
+              "guest_email"
+            ],
+            "capability": "book_hotel"
+          },
+          {
+            "path": "/api/hotels/categories",
+            "methods": [
+              "GET"
+            ],
+            "description": "Get list of available hotel categories",
+            "capability": "get_hotel_categories"
+          },
+          {
+            "path": "/api/bookings/{booking_reference}",
+            "methods": [
+              "GET"
+            ],
+            "description": "Get details of a specific booking",
+            "pathParams": [
+              "booking_reference"
+            ],
+            "capability": "get_booking"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Weather Forecast Service",
+    "sse_url": "http://localhost:5003/api/events",
+    "last_connected": "2025-03-21T15:16:56.998438",
+    "services": [
+      {
+        "id": "b45407a9-76f4-4d88-b46e-fefe636affc9",
+        "name": "weather-forecast",
+        "capabilities": [
+          "get_forecast",
+          "get_current_weather",
+          "get_available_cities"
+        ],
+        "endpoints": [
+          {
+            "path": "/api/weather/forecast",
+            "methods": [
+              "GET"
+            ],
+            "description": "Get weather forecast for a city",
+            "queryParams": [
+              "city",
+              "days"
+            ],
+            "capability": "get_forecast"
+          },
+          {
+            "path": "/api/weather/current",
+            "methods": [
+              "GET"
+            ],
+            "description": "Get current weather for a city",
+            "queryParams": [
+              "city"
+            ],
+            "capability": "get_current_weather"
+          },
+          {
+            "path": "/api/weather/cities",
+            "methods": [
+              "GET"
+            ],
+            "description": "Get list of available cities for forecasts",
+            "capability": "get_available_cities"
+          }
+        ]
+      }
+    ]
+  }
+]

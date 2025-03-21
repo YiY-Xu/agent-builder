@@ -29,7 +29,7 @@ from .routers.chat import router as chat_router
 from .routers.test_agent import router as test_agent_router
 from .routers.knowledge import router as knowledge_router
 from .routers.logs import router as logs_router
-
+from .routers.mcp_servers import router as mcp_servers_router
 # Log environment variables at startup
 logger.info("Starting application with configuration:")
 logger.info(f"CLAUDE_MODEL: {settings.CLAUDE_MODEL}")
@@ -88,7 +88,7 @@ app.include_router(chat_router)
 app.include_router(test_agent_router)
 app.include_router(knowledge_router)
 app.include_router(logs_router)
-
+app.include_router(mcp_servers_router)
 @app.get("/")
 async def root():
     """Root endpoint to verify API is running."""
