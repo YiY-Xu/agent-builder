@@ -8,7 +8,8 @@
   }
   
 /* Header styles with more specific selectors to ensure proper precedence */
-.agent-builder-container .chat-header {
+.agent-builder-container .chat-header,
+.agent-builder-container .config-tabs {
   height: 64px;
   box-sizing: border-box;
   display: flex;
@@ -20,14 +21,6 @@
 }
 
 .agent-builder-container .config-tabs {
-  height: 64px;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid var(--border-color);
-  background-color: white;
-  flex-shrink: 0;
   gap: 8px;
 }
   
@@ -197,14 +190,11 @@
   
   /* Config tabs - single definitive style block */
   .config-tabs {
-    height: 64px !important;
-    box-sizing: border-box;
     display: flex;
     align-items: center;
     padding: 1rem;
     border-bottom: 1px solid var(--border-color);
     background-color: white;
-    flex-shrink: 0;
     gap: 8px;
   }
   
@@ -627,12 +617,6 @@
     gap: 0.5rem;
   }
   
-  .knowledge-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
   .knowledge-type {
     display: flex;
     align-items: center;
@@ -678,14 +662,16 @@
 }
 
 .config-actions {
+  margin-left: auto;
   display: flex;
   gap: 8px;
+  margin-right: 4px;
 }
 
 .action-button {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   padding: 6px 12px;
   border-radius: 6px;
   font-size: 14px;
@@ -909,73 +895,6 @@
 .refresh-logs-button:hover {
   background: #4a5568;
   color: white;
-}
-
-/* Config actions positioning */
-.config-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 8px;
-  margin-right: 4px;
-}
-/* Action button styles */
-.action-button {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-
-.edit-button {
-  background-color: #f3f4f6;
-  color: #374151;
-}
-
-.edit-button:hover {
-  background-color: #e5e7eb;
-}
-
-.refresh-button {
-  background-color: #f3f4f6;
-  color: #374151;
-}
-
-.refresh-button:hover:not(:disabled) {
-  background-color: #e5e7eb;
-}
-
-.save-button {
-  background-color: #4f46e5;
-  color: white;
-}
-
-.save-button:hover:not(:disabled) {
-  background-color: #4338ca;
-}
-
-.cancel-button {
-  background-color: #f3f4f6;
-  color: #374151;
-}
-
-.cancel-button:hover:not(:disabled) {
-  background-color: #e5e7eb;
-}
-
-.action-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Remove the old positioning for the refresh button */
-.refresh-logs-button {
-  display: none;
 }
 
 /* Mode toggle button */
