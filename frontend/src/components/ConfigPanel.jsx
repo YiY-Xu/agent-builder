@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useAgent } from '../context/AgentContext';
 import YamlExport from './YamlExport';
 import KnowledgeUpload from './KnowledgeUpload';
+import MCPServerSelection from './MCPServerSelection';
 import useChat from '../hooks/useChat';
 import '../styles/components.css';
+import { Server, Plus } from 'lucide-react';
 
 /**
  * Component for the right panel with agent configuration
@@ -20,6 +22,7 @@ const ConfigPanel = () => {
   const [mcpServers, setMcpServers] = useState([]);
   const [selectedServers, setSelectedServers] = useState([]);
   const [showAddServerModal, setShowAddServerModal] = useState(false);
+  const [showMcpServerSelection, setShowMcpServerSelection] = useState(false);
   const [newServer, setNewServer] = useState({ name: '', sse_url: '' });
 
   // Add a ref to track if component has mounted
@@ -101,17 +104,6 @@ const ConfigPanel = () => {
     console.log("=================== loadMcpServers finished ===================");
   };
 
-  // Handle server selection
-  const toggleServerSelection = (serverName) => {
-    setSelectedServers(prev => {
-      if (prev.includes(serverName)) {
-        return prev.filter(name => name !== serverName);
-      } else {
-        return [...prev, serverName];
-      }
-    });
-  };
-
   // Handle adding a new server
   const handleAddServer = async () => {
     if (newServer.name && newServer.sse_url) {
@@ -147,6 +139,12 @@ const ConfigPanel = () => {
         alert("Error adding server: " + error.message);
       }
     }
+  };
+
+  // Handle MCP server selection completion
+  const handleServerSelectionComplete = (selectedServerNames) => {
+    setSelectedServers(selectedServerNames);
+    setShowMcpServerSelection(false);
   };
 
   // Watch for changes in agentConfig and update changedContent
@@ -227,7 +225,7 @@ const ConfigPanel = () => {
       <div className="config-tabs">
         <h2>Agent Configuration</h2>
         
-        {agentConfig && !showYamlButton && !showKnowledgeUpload && (
+        {agentConfig && !showYamlButton && !showKnowledgeUpload && !showMcpServerSelection && (
           <div className="config-actions">
             <button 
               className="action-button" 
@@ -241,6 +239,13 @@ const ConfigPanel = () => {
       
       {showKnowledgeUpload ? (
         <KnowledgeUpload />
+      ) : showMcpServerSelection ? (
+        <MCPServerSelection 
+          mcpServers={mcpServers}
+          selectedServers={selectedServers}
+          onSelectServers={handleServerSelectionComplete}
+          onCancel={() => setShowMcpServerSelection(false)}
+        />
       ) : (
         <div className="config-fields" style={{ overflow: 'auto', height: 'calc(100vh - 120px)' }}>
           {/* Agent Name */}
@@ -283,7 +288,7 @@ const ConfigPanel = () => {
           <div className="config-field">
             <label className="field-label">Agent Tools</label>
             <div className="field-content tools-field">
-              {agentConfig.tools.length > 0 ? (
+              {agentConfig.tools && agentConfig.tools.length > 0 ? (
                 <ul className="tools-list">
                   {agentConfig.tools.map((tool, index) => (
                     <li key={index} className={changedContent.tools?.includes(tool) ? 'highlight-new' : ''}>
@@ -301,23 +306,33 @@ const ConfigPanel = () => {
           <div className="config-field">
             <label className="field-label">MCP Servers</label>
             <div className="field-content">
-              {mcpServers && mcpServers.length > 0 ? (
+              {selectedServers && selectedServers.length > 0 ? (
                 <div className="knowledge-info">
-                  {mcpServers.map((server, index) => (
-                    <div key={index} className="mcp-server-item">
-                      <input
-                        type="checkbox"
-                        id={`server-${index}`}
-                        checked={selectedServers.includes(server.name)}
-                        onChange={() => toggleServerSelection(server.name)}
-                      />
-                      <label htmlFor={`server-${index}`}>{'  ' + server.name}</label>
-                    </div>
-                  ))}
+                  <ul className="mcp-servers-list">
+                    {selectedServers.map((serverName, index) => (
+                      <li key={index} className="mcp-server-item">
+                        <Server size={14} className="mr-2" /> {serverName}
+                      </li>
+                    ))}
+                  </ul>
+                  <div style={{ marginTop: '10px' }}>
+                    <button 
+                      className="edit-button"
+                      onClick={() => setShowMcpServerSelection(true)}
+                    >
+                      Manage MCP Servers
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="knowledge-empty">
-                  <p>No MCP servers available</p>
+                  <p>No MCP servers selected</p>
+                                      <button 
+                    className="edit-button"
+                    onClick={() => setShowMcpServerSelection(true)}
+                  >
+                    Manage MCP Servers
+                  </button>
                 </div>
               )}
             </div>
@@ -361,7 +376,7 @@ const ConfigPanel = () => {
       )}
       
       {/* YAML export */}
-      {showYamlButton && yamlContent && !showKnowledgeUpload && (
+      {showYamlButton && yamlContent && !showKnowledgeUpload && !showMcpServerSelection && (
         <YamlExport yamlContent={yamlContent} />
       )}
     </div>

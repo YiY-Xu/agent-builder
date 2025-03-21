@@ -1043,3 +1043,56 @@
 .download-yaml-button:hover svg {
   transform: scale(1.1);
 }
+
+/* MCP Server styles */
+.mcp-servers-list {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mcp-server-item {
+  display: flex;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 14px;
+}
+
+.mcp-server-item svg {
+  margin-right: 8px;
+  color: var(--secondary-color);
+}
+
+/* Align icons with text */
+.mr-1 {
+  margin-right: 4px;
+}
+
+.mr-2 {
+  margin-right: 8px;
+}
+
+/* Button styles for consistency */
+.add-knowledge-button,
+.edit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #6c5ce7;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.add-knowledge-button:hover,
+.edit-button:hover {
+  background-color: #5b4cc4;
+}
+
+.edit-button:hover {
+  background-color: #5b4cc4;
+}
