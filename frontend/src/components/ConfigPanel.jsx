@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAgent } from '../context/AgentContext';
 import YamlExport from './YamlExport';
 import KnowledgeUpload from './KnowledgeUpload';
@@ -15,6 +15,81 @@ const ConfigPanel = () => {
     setShowKnowledgeUpload
   } = useAgent();
   const { showYamlButton, yamlContent } = useChat();
+  const [previousConfig, setPreviousConfig] = useState({});
+  const [changedContent, setChangedContent] = useState({});
+
+  // Watch for changes in agentConfig and update changedContent
+  useEffect(() => {
+    const newChanges = {};
+    
+    // Compare each field with its previous value
+    if (agentConfig.name !== previousConfig.name) {
+      const oldName = previousConfig.name || "";
+      const newName = agentConfig.name || "";
+      newChanges.name = findNewContent(oldName, newName);
+    }
+    
+    if (agentConfig.description !== previousConfig.description) {
+      const oldDesc = previousConfig.description || "";
+      const newDesc = agentConfig.description || "";
+      newChanges.description = findNewContent(oldDesc, newDesc);
+    }
+    
+    if (agentConfig.instruction !== previousConfig.instruction) {
+      const oldInstr = previousConfig.instruction || "";
+      const newInstr = agentConfig.instruction || "";
+      newChanges.instruction = findNewContent(oldInstr, newInstr);
+    }
+    
+    if (agentConfig.memory_size !== previousConfig.memory_size) {
+      newChanges.memory_size = String(agentConfig.memory_size);
+    }
+    
+    // For tools, we'll highlight newly added tools
+    if (agentConfig.tools?.length !== previousConfig.tools?.length) {
+      const oldTools = previousConfig.tools || [];
+      const newTools = agentConfig.tools || [];
+      newChanges.tools = newTools.slice(oldTools.length);
+    }
+    
+    setChangedContent(newChanges);
+    setPreviousConfig(agentConfig);
+  }, [agentConfig]);
+
+  // Clear highlights after 2 seconds
+  useEffect(() => {
+    if (Object.keys(changedContent).length > 0) {
+      const timer = setTimeout(() => {
+        setChangedContent({});
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [changedContent]);
+
+  // Helper function to find new content in a string
+  const findNewContent = (oldStr, newStr) => {
+    if (!oldStr) return newStr;
+    if (newStr.includes(oldStr)) {
+      return newStr.slice(oldStr.length).trim();
+    }
+    return newStr;
+  };
+
+  // Helper function to render content with highlights
+  const renderWithHighlight = (content, changedPart) => {
+    if (!changedPart) return content;
+    
+    const parts = content.split(changedPart);
+    if (parts.length === 1) return content;
+    
+    return (
+      <>
+        {parts[0]}
+        <span className="highlight-new">{changedPart}</span>
+        {parts.slice(1).join(changedPart)}
+      </>
+    );
+  };
 
   return (
     <div className="config-panel">
@@ -30,7 +105,7 @@ const ConfigPanel = () => {
           <div className="config-field">
             <label className="field-label">Agent Name</label>
             <div className="field-content">
-              {agentConfig.name || "Not yet specified"}
+              {renderWithHighlight(agentConfig.name || "Not yet specified", changedContent.name)}
             </div>
           </div>
           
@@ -38,7 +113,7 @@ const ConfigPanel = () => {
           <div className="config-field">
             <label className="field-label">Agent Description</label>
             <div className="field-content">
-              {agentConfig.description || "Not yet specified"}
+              {renderWithHighlight(agentConfig.description || "Not yet specified", changedContent.description)}
             </div>
           </div>
           
@@ -46,7 +121,7 @@ const ConfigPanel = () => {
           <div className="config-field">
             <label className="field-label">Agent Instruction</label>
             <div className="field-content instruction-field">
-              {agentConfig.instruction || "Not yet specified"}
+              {renderWithHighlight(agentConfig.instruction || "Not yet specified", changedContent.instruction)}
             </div>
           </div>
           
@@ -54,7 +129,11 @@ const ConfigPanel = () => {
           <div className="config-field">
             <label className="field-label">Agent Memory Size</label>
             <div className="field-content">
-              {agentConfig.memory_size}
+              {changedContent.memory_size ? (
+                <span className="highlight-new">{agentConfig.memory_size}</span>
+              ) : (
+                agentConfig.memory_size
+              )}
             </div>
           </div>
           
@@ -65,7 +144,7 @@ const ConfigPanel = () => {
               {agentConfig.tools.length > 0 ? (
                 <ul className="tools-list">
                   {agentConfig.tools.map((tool, index) => (
-                    <li key={index}>
+                    <li key={index} className={changedContent.tools?.includes(tool) ? 'highlight-new' : ''}>
                       <strong>{tool.name}:</strong> {tool.endpoint}
                     </li>
                   ))}

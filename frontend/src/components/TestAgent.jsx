@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Upload, ArrowLeft, Database, Edit, Save, X, Terminal, RefreshCw, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Send, Upload, ArrowLeft, Database, Edit, Save, X, Terminal, RefreshCw, ToggleLeft, ToggleRight, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ChatMessage from './ChatMessage';
 import LoadingIndicator from './LoadingIndicator';
@@ -109,7 +109,9 @@ const TestAgent = () => {
               const newLogs = data.logs.filter(newLog => 
                 !prevLogs.some(prevLog => prevLog === newLog)
               );
-              return [...prevLogs, ...newLogs];
+              // Combine and keep only the latest 300 lines
+              const combinedLogs = [...prevLogs, ...newLogs];
+              return combinedLogs.slice(-300);
             });
           }
         });
@@ -569,48 +571,77 @@ const TestAgent = () => {
           </Link>
           <h2>{agentConfig?.name || 'Test Your Agent'}</h2>
           {agentConfig && (
-            <button 
-              className={`mode-toggle-button ${agentConfig.config?.mode === 'debug' ? 'debug-mode' : ''}`}
-              onClick={async () => {
-                try {
-                  setIsLoading(true);
-                  const currentMode = agentConfig.config?.mode || 'normal';
-                  const newMode = await toggleMode(currentMode);
-                  
-                  // Update just the mode in the existing config
-                  setAgentConfig(prev => ({
-                    ...prev,
-                    config: {
-                      ...prev.config,
-                      mode: newMode
-                    }
-                  }));
-                  
-                  // Add a system message about the mode change
-                  setMessages(prev => [...prev, {
-                    role: 'assistant',
-                    content: `Mode switched to ${newMode.toUpperCase()}`
-                  }]);
-                } catch (error) {
-                  setError(`Error toggling mode: ${error.message}`);
-                } finally {
-                  setIsLoading(false);
-                }
-              }}
-              disabled={isLoading}
-            >
-              {agentConfig.config?.mode === 'debug' ? (
-                <>
-                  <ToggleRight size={18} />
-                  <span>Debug Mode</span>
-                </>
-              ) : (
-                <>
-                  <ToggleLeft size={18} />
-                  <span>Normal Mode</span>
-                </>
-              )}
-            </button>
+            <div className="header-actions">
+              <button 
+                className="download-yaml-button"
+                onClick={async () => {
+                  try {
+                    setIsLoading(true);
+                    const yamlContent = await generateYaml(agentConfig);
+                    const fileName = `${agentConfig.name?.replace(/\s+/g, '_').toLowerCase() || 'agent'}_config.yaml`;
+                    
+                    // Create blob and download
+                    const blob = new Blob([yamlContent], { type: 'text/yaml' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                  } catch (error) {
+                    setError(`Error generating YAML: ${error.message}`);
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+                disabled={isLoading}
+              >
+                <FileText size={18} />
+                <span>Download YAML</span>
+              </button>
+              <button 
+                className={`mode-toggle-button ${agentConfig.config?.mode === 'debug' ? 'debug-mode' : ''}`}
+                onClick={async () => {
+                  try {
+                    setIsLoading(true);
+                    const currentMode = agentConfig.config?.mode || 'normal';
+                    const newMode = await toggleMode(currentMode);
+                    
+                    setAgentConfig(prev => ({
+                      ...prev,
+                      config: {
+                        ...prev.config,
+                        mode: newMode
+                      }
+                    }));
+                    
+                    setMessages(prev => [...prev, {
+                      role: 'assistant',
+                      content: `Mode switched to ${newMode.toUpperCase()}`
+                    }]);
+                  } catch (error) {
+                    setError(`Error toggling mode: ${error.message}`);
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+                disabled={isLoading}
+              >
+                {agentConfig.config?.mode === 'debug' ? (
+                  <>
+                    <ToggleRight size={18} />
+                    <span>Debug Mode</span>
+                  </>
+                ) : (
+                  <>
+                    <ToggleLeft size={18} />
+                    <span>Normal Mode</span>
+                  </>
+                )}
+              </button>
+            </div>
           )}
         </div>
         
@@ -680,18 +711,20 @@ const TestAgent = () => {
       {/* Right Panel: Tabbed Interface */}
       <div className="config-panel">
         <div className="config-tabs">
-          <button 
-            className={`tab-button ${activeTab === 'info' ? 'active' : ''}`}
-            onClick={() => setActiveTab('info')}
-          >
-            Agent Information
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'logs' ? 'active' : ''}`}
-            onClick={() => setActiveTab('logs')}
-          >
-            System Logs
-          </button>
+          <div className="tab-buttons">
+            <button 
+              className={`tab-button ${activeTab === 'info' ? 'active' : ''}`}
+              onClick={() => setActiveTab('info')}
+            >
+              Agent Information
+            </button>
+            <button 
+              className={`tab-button ${activeTab === 'logs' ? 'active' : ''}`}
+              onClick={() => setActiveTab('logs')}
+            >
+              System Logs
+            </button>
+          </div>
           
           {/* Action buttons that change based on the active tab */}
           <div className="config-actions">
