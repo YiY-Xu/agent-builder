@@ -93,8 +93,19 @@ const ConfigPanel = () => {
 
   return (
     <div className="config-panel">
-      <div className="config-header">
+      <div className="config-tabs">
         <h2>Agent Configuration</h2>
+        
+        {agentConfig && !showYamlButton && !showKnowledgeUpload && (
+          <div className="config-actions">
+            <button 
+              className="action-button" 
+              onClick={() => setShowKnowledgeUpload(true)}
+            >
+              Add Knowledge
+            </button>
+          </div>
+        )}
       </div>
       
       {showKnowledgeUpload ? (

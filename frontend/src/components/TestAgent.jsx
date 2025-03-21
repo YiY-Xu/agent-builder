@@ -558,10 +558,25 @@ const TestAgent = () => {
         <div className="no-logs">No logs available</div>
       )}
     </div>
-  )
+  );
+  
+  // Refresh logs function
+  const refreshLogs = async () => {
+    setIsLoadingLogs(true);
+    try {
+      const response = await fetchLogs();
+      if (response && response.logs) {
+        setLogs(response.logs);
+      }
+    } catch (error) {
+      console.error('Error refreshing logs:', error);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
 
   return (
-    <div className="agent-builder-container">
+    <div className="agent-builder-container test-agent">
       {/* Left Panel: Chat Interface */}
       <div className="chat-panel">
         <div className="chat-header">
@@ -712,83 +727,84 @@ const TestAgent = () => {
       <div className="config-panel">
         <div className="config-tabs">
           <div className="tab-buttons">
-            <button 
+            <button
               className={`tab-button ${activeTab === 'info' ? 'active' : ''}`}
               onClick={() => setActiveTab('info')}
+              disabled={isLoading}
             >
               Agent Information
             </button>
-            <button 
+            <button
               className={`tab-button ${activeTab === 'logs' ? 'active' : ''}`}
-              onClick={() => setActiveTab('logs')}
+              onClick={() => {
+                setActiveTab('logs');
+                refreshLogs();
+              }}
+              disabled={isLoading}
             >
               System Logs
             </button>
           </div>
           
-          {/* Action buttons that change based on the active tab */}
-          <div className="config-actions">
-            {activeTab === 'info' && agentConfig ? (
-              isEditMode ? (
+          {/* Action buttons */}
+          {activeTab === 'info' && agentConfig && (
+            <div className="config-actions">
+              {isEditMode ? (
                 <>
-                  <button 
+                  <button
                     className="action-button save-button"
                     onClick={saveConfigChanges}
                     disabled={isSaving}
                   >
-                    {isSaving ? <LoadingIndicator size={16} /> : <Save size={18} />}
-                    <span>Save</span>
+                    {isSaving ? <LoadingIndicator size={16} /> : <Save size={16} />}
+                    <span>{isSaving ? 'Saving...' : 'Save'}</span>
                   </button>
-                  <button 
+                  <button
                     className="action-button cancel-button"
                     onClick={toggleEditMode}
                     disabled={isSaving}
                   >
-                    <X size={18} />
+                    <X size={16} />
                     <span>Cancel</span>
                   </button>
                 </>
               ) : (
-                <button 
+                <button
                   className="action-button edit-button"
                   onClick={toggleEditMode}
                 >
-                  <Edit size={18} />
+                  <Edit size={16} />
                   <span>Edit</span>
                 </button>
-              )
-            ) : activeTab === 'logs' ? (
-              <button 
+              )}
+            </div>
+          )}
+          
+          {activeTab === 'logs' && (
+            <div className="config-actions">
+              <button
                 className="action-button refresh-button"
-                onClick={async () => {
-                  setIsLoadingLogs(true);
-                  try {
-                    const response = await fetchLogs();
-                    if (response && response.logs) {
-                      setLogs(response.logs);
-                    }
-                  } catch (error) {
-                    console.error('Error refreshing logs:', error);
-                  } finally {
-                    setIsLoadingLogs(false);
-                  }
-                }}
+                onClick={refreshLogs}
                 disabled={isLoadingLogs}
               >
-                {isLoadingLogs ? <LoadingIndicator size={16} /> : <RefreshCw size={18} />}
+                {isLoadingLogs ? <LoadingIndicator size={16} /> : <RefreshCw size={16} />}
                 <span>{isLoadingLogs ? 'Loading...' : 'Refresh'}</span>
               </button>
-            ) : null}
-          </div>
+            </div>
+          )}
         </div>
         
         <div className="tab-content">
-          {!agentConfig && activeTab === 'info' ? (
+          {agentConfig ? (
+            activeTab === 'info' ? renderAgentInfoTab() : renderSystemLogsTab()
+          ) : (
             <div className="empty-state">
               <p>Upload a YAML file to view agent details</p>
+              <button className="upload-button" onClick={triggerFileUpload}>
+                <Upload size={18} />
+                <span>Upload YAML</span>
+              </button>
             </div>
-          ) : (
-            activeTab === 'info' ? renderAgentInfoTab() : renderSystemLogsTab()
           )}
         </div>
       </div>
