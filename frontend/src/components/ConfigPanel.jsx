@@ -17,6 +17,137 @@ const ConfigPanel = () => {
   const { showYamlButton, yamlContent } = useChat();
   const [previousConfig, setPreviousConfig] = useState({});
   const [changedContent, setChangedContent] = useState({});
+  const [mcpServers, setMcpServers] = useState([]);
+  const [selectedServers, setSelectedServers] = useState([]);
+  const [showAddServerModal, setShowAddServerModal] = useState(false);
+  const [newServer, setNewServer] = useState({ name: '', sse_url: '' });
+
+  // Add a ref to track if component has mounted
+  const isMounted = React.useRef(false);
+
+  // Load MCP servers on mount with explicit logging
+  useEffect(() => {
+    console.log("=========================================");
+    console.log("ConfigPanel useEffect triggered - component mounted");
+    console.log("=========================================");
+    
+    // Ensure we only call it once
+    if (!isMounted.current) {
+      isMounted.current = true;
+      console.log("Making initial MCP servers API call");
+      
+      // Call with slight delay to ensure component is fully mounted
+      setTimeout(() => {
+        loadMcpServers();
+      }, 500);
+    }
+    
+    // Add a periodic check to ensure API calls are made
+    const intervalId = setInterval(() => {
+      console.log("Checking MCP servers status...");
+      if (mcpServers.length === 0) {
+        console.log("No MCP servers loaded yet, retrying API call");
+        loadMcpServers();
+      } else {
+        console.log(`${mcpServers.length} MCP servers loaded, no need to retry`);
+      }
+    }, 10000); // Check every 10 seconds
+    
+    // Clean up interval on unmount
+    return () => {
+      console.log("ConfigPanel unmounting - cleaning up interval");
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  // Function to load MCP servers from API with more debugging
+  const loadMcpServers = async () => {
+    console.log("=================== loadMcpServers called ===================");
+    try {
+      console.log("Fetching MCP servers from /api/mcp-servers/list");
+      
+      // Use the correct backend URL with port 8000
+      const apiUrl = "http://localhost:8000/api/mcp-servers/list";
+      console.log("Full API URL:", apiUrl);
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      
+      console.log("Response status:", response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log("MCP servers data:", data);
+        
+        if (data && data.servers) {
+          console.log(`Found ${data.servers.length} MCP servers`);
+          setMcpServers(data.servers);
+        } else {
+          console.warn("No servers found in response data:", data);
+          setMcpServers([]);
+        }
+      } else {
+        console.error("Failed to fetch MCP servers, status:", response.status);
+        setMcpServers([]);
+      }
+    } catch (error) {
+      console.error("Failed to load MCP servers:", error);
+      setMcpServers([]);
+    }
+    console.log("=================== loadMcpServers finished ===================");
+  };
+
+  // Handle server selection
+  const toggleServerSelection = (serverName) => {
+    setSelectedServers(prev => {
+      if (prev.includes(serverName)) {
+        return prev.filter(name => name !== serverName);
+      } else {
+        return [...prev, serverName];
+      }
+    });
+  };
+
+  // Handle adding a new server
+  const handleAddServer = async () => {
+    if (newServer.name && newServer.sse_url) {
+      try {
+        console.log("Adding new MCP server:", newServer);
+        
+        // Use the correct backend URL with port 8000
+        const addServerUrl = "http://localhost:8000/api/mcp-servers/add";
+        
+        const response = await fetch(addServerUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify(newServer)
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log("Server added successfully:", result);
+          // Reload the servers list
+          loadMcpServers();
+          // Reset form and close modal
+          setNewServer({ name: '', sse_url: '' });
+          setShowAddServerModal(false);
+        } else {
+          console.error("Failed to add server:", await response.text());
+          alert("Failed to add server. Please check the console for details.");
+        }
+      } catch (error) {
+        console.error("Error adding server:", error);
+        alert("Error adding server: " + error.message);
+      }
+    }
+  };
 
   // Watch for changes in agentConfig and update changedContent
   useEffect(() => {
@@ -111,7 +242,7 @@ const ConfigPanel = () => {
       {showKnowledgeUpload ? (
         <KnowledgeUpload />
       ) : (
-        <div className="config-fields">
+        <div className="config-fields" style={{ overflow: 'auto', height: 'calc(100vh - 120px)' }}>
           {/* Agent Name */}
           <div className="config-field">
             <label className="field-label">Agent Name</label>
@@ -162,6 +293,32 @@ const ConfigPanel = () => {
                 </ul>
               ) : (
                 "No tools specified"
+              )}
+            </div>
+          </div>
+          
+          {/* MCP Servers Section */}
+          <div className="config-field">
+            <label className="field-label">MCP Servers</label>
+            <div className="field-content">
+              {mcpServers && mcpServers.length > 0 ? (
+                <div className="knowledge-info">
+                  {mcpServers.map((server, index) => (
+                    <div key={index} className="mcp-server-item">
+                      <input
+                        type="checkbox"
+                        id={`server-${index}`}
+                        checked={selectedServers.includes(server.name)}
+                        onChange={() => toggleServerSelection(server.name)}
+                      />
+                      <label htmlFor={`server-${index}`}>{'  ' + server.name}</label>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="knowledge-empty">
+                  <p>No MCP servers available</p>
+                </div>
               )}
             </div>
           </div>

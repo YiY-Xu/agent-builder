@@ -49,6 +49,7 @@ async def list_mcp_servers():
     List all registered MCP servers.
     """
     servers = await load_mcp_servers()
+    print(servers)
     return {"servers": servers}
 
 @router.get("/{server_name}")
