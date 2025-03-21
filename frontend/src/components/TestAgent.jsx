@@ -708,7 +708,7 @@ const TestAgent = () => {
         </div>
       </div>
       
-      {/* Right Panel: Agent Config */}
+      {/* Right Panel: Tabbed Interface */}
       <div className="config-panel">
         <div className="config-tabs">
           <div className="tab-buttons">
