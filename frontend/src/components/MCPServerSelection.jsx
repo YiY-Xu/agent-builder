@@ -8,6 +8,10 @@ import '../styles/components.css';
 const MCPServerSelection = ({ mcpServers, selectedServers, onSelectServers, onCancel }) => {
   const [selection, setSelection] = useState([...selectedServers]);
   const [loading, setLoading] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newServer, setNewServer] = useState({ name: '', sse_url: '' });
+  const [addingServer, setAddingServer] = useState(false);
+  const [error, setError] = useState(null);
   
   // Handle server selection
   const toggleServerSelection = (serverName) => {
@@ -18,6 +22,56 @@ const MCPServerSelection = ({ mcpServers, selectedServers, onSelectServers, onCa
         return [...prev, serverName];
       }
     });
+  };
+  
+  // Handle adding a new server
+  const handleAddServer = async () => {
+    if (!newServer.name || !newServer.sse_url) {
+      setError('Both Server Name and SSE URL are required');
+      return;
+    }
+    
+    try {
+      setAddingServer(true);
+      setError(null);
+      
+      // Call the backend API to add a new server
+      const response = await fetch('http://localhost:8000/api/mcp-servers/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(newServer)
+      });
+      
+      if (response.ok) {
+        // Close modal and reset form
+        setShowAddModal(false);
+        setNewServer({ name: '', sse_url: '' });
+        
+        // Refresh the server list
+        // In a real implementation, you might want to update the mcpServers list
+        // by receiving the updated list from the parent component or refetching it
+        window.location.reload(); // Simple solution for demo
+      } else {
+        const error = await response.text();
+        setError(`Failed to add server: ${error}`);
+      }
+    } catch (err) {
+      setError(`Error: ${err.message}`);
+    } finally {
+      setAddingServer(false);
+    }
+  };
+  
+  // Handle input change for new server form
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewServer(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
   
   // Handle confirmation of selection
@@ -34,20 +88,6 @@ const MCPServerSelection = ({ mcpServers, selectedServers, onSelectServers, onCa
   const formatServerName = (name) => {
     if (name.length <= 30) return name;
     return `${name.substring(0, 27)}...`;
-  };
-  
-  // Refresh server list
-  const refreshServerList = async () => {
-    setLoading(true);
-    try {
-      // Simulate API call - in a real app, you'd call your API here
-      await new Promise(resolve => setTimeout(resolve, 500));
-      // You would update mcpServers here with the response
-    } catch (error) {
-      console.error("Error refreshing server list:", error);
-    } finally {
-      setLoading(false);
-    }
   };
 
   return (
@@ -67,11 +107,11 @@ const MCPServerSelection = ({ mcpServers, selectedServers, onSelectServers, onCa
         <div className="selected-files-header">
           <h4>Available Servers ({mcpServers.length})</h4>
           <button 
-            className="refresh-button"
-            onClick={refreshServerList}
+            className="add-server-button"
+            onClick={() => setShowAddModal(true)}
             disabled={loading}
           >
-            <RefreshCw size={16} />
+            <Plus size={16} />
           </button>
         </div>
         
@@ -114,6 +154,75 @@ const MCPServerSelection = ({ mcpServers, selectedServers, onSelectServers, onCa
           Select Servers
         </button>
       </div>
+      
+      {/* Add Server Modal */}
+      {showAddModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Add MCP Server</h3>
+              <button 
+                className="close-button"
+                onClick={() => setShowAddModal(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="form-group">
+                <label htmlFor="server-name">Server Name</label>
+                <input
+                  type="text"
+                  id="server-name"
+                  name="name"
+                  value={newServer.name}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Weather Forecast Service"
+                  className="form-input"
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="server-url">SSE URL</label>
+                <input
+                  type="text"
+                  id="server-url"
+                  name="sse_url"
+                  value={newServer.sse_url}
+                  onChange={handleInputChange}
+                  placeholder="e.g., http://localhost:5003/api/events"
+                  className="form-input"
+                />
+              </div>
+              
+              {error && (
+                <div className="error-message">
+                  {error}
+                </div>
+              )}
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                className="cancel-button"
+                onClick={() => setShowAddModal(false)}
+                disabled={addingServer}
+              >
+                Cancel
+              </button>
+              
+              <button 
+                className="create-index-button"
+                onClick={handleAddServer}
+                disabled={addingServer}
+              >
+                {addingServer ? 'Adding...' : 'Add Server'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
