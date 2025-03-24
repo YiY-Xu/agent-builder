@@ -65,6 +65,14 @@ const KnowledgeUpload = () => {
     const file = event.target.files[0];
     if (!file) return;
     
+    // Check if agent has a name first
+    if (!agentConfig.name || agentConfig.name.trim() === '') {
+      setError('Please name your agent before uploading documents.');
+      // Clear the input value
+      event.target.value = '';
+      return;
+    }
+    
     try {
       setUploading(true);
       setError(null);

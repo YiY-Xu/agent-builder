@@ -175,17 +175,6 @@ const ConfigPanel = () => {
     <div className="config-panel">
       <div className="config-tabs">
         <h2>Agent Configuration</h2>
-        
-        {agentConfig && !showYamlButton && !showKnowledgeUpload && !showMcpServerSelection && (
-          <div className="config-actions">
-            <button 
-              className="action-button" 
-              onClick={() => setShowKnowledgeUpload(true)}
-            >
-              Add Knowledge
-            </button>
-          </div>
-        )}
       </div>
       
       {showKnowledgeUpload ? (
@@ -270,6 +259,9 @@ const ConfigPanel = () => {
                     <button 
                       className="edit-button"
                       onClick={() => setShowMcpServerSelection(true)}
+                      disabled={!agentConfig.name || agentConfig.name.trim() === ''}
+                      title={!agentConfig.name || agentConfig.name.trim() === '' ? 
+                        "Please name your agent first" : "Configure MCP server connections"}
                     >
                       Manage MCP Servers
                     </button>
@@ -281,6 +273,9 @@ const ConfigPanel = () => {
                   <button 
                     className="edit-button"
                     onClick={() => setShowMcpServerSelection(true)}
+                    disabled={!agentConfig.name || agentConfig.name.trim() === ''}
+                    title={!agentConfig.name || agentConfig.name.trim() === '' ? 
+                      "Please name your agent first" : "Configure MCP server connections"}
                   >
                     Manage MCP Servers
                   </button>
@@ -306,6 +301,9 @@ const ConfigPanel = () => {
                   <button 
                     className="add-knowledge-button"
                     onClick={() => setShowKnowledgeUpload(true)}
+                    disabled={!agentConfig.name || agentConfig.name.trim() === ''}
+                    title={!agentConfig.name || agentConfig.name.trim() === '' ? 
+                      "Please name your agent first" : "Manage knowledge documents"}
                   >
                     Manage Documents
                   </button>
@@ -316,6 +314,9 @@ const ConfigPanel = () => {
                   <button 
                     className="add-knowledge-button"
                     onClick={() => setShowKnowledgeUpload(true)}
+                    disabled={!agentConfig.name || agentConfig.name.trim() === ''}
+                    title={!agentConfig.name || agentConfig.name.trim() === '' ? 
+                      "Please name your agent first" : "Add knowledge documents to your agent"}
                   >
                     Add Knowledge
                   </button>

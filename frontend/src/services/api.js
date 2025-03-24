@@ -79,6 +79,22 @@ export const sendMessage = async (messages, agentConfig) => {
 export const uploadFile = async (formData) => {
   try {
     console.log('Uploading file');
+
+    // Add these debugging lines
+    console.log('FormData contents:');
+    for (let pair of formData.entries()) {
+      if (pair[0] === 'file') {
+        const file = pair[1];
+        console.log('File:', {
+          name: file.name,
+          type: file.type,
+          size: `${(file.size / 1024).toFixed(2)} KB`,
+          lastModified: new Date(file.lastModified).toISOString()
+        });
+      } else {
+        console.log(`${pair[0]}: ${pair[1]}`);
+      }
+    }
     
     const response = await fetch(`${API_BASE_URL}/api/upload-file`, {
       method: 'POST',
