@@ -15,6 +15,7 @@ export const AgentProvider = ({ children }) => {
     instruction: '',
     memory_size: 10,
     tools: [],
+    mcp_servers: [],  // Add MCP servers to agent config
     knowledge_base: {
       storage_type: 'llamacloud',  // Default to LlamaCloud storage
       index_name: null,
@@ -38,6 +39,10 @@ export const AgentProvider = ({ children }) => {
   // Knowledge upload state
   const [showKnowledgeUpload, setShowKnowledgeUpload] = useState(false);
   const [uploadingKnowledge, setUploadingKnowledge] = useState(false);
+
+  // Add MCP server state
+  const [mcpServers, setMcpServers] = useState([]);
+  const [selectedServers, setSelectedServers] = useState([]);
 
   /**
    * Update a single field in the agent configuration
@@ -143,6 +148,7 @@ export const AgentProvider = ({ children }) => {
       instruction: '',
       memory_size: 10,
       tools: [],
+      mcp_servers: [],
       knowledge_base: {
         storage_type: 'llamacloud',
         index_name: null,
@@ -156,6 +162,20 @@ export const AgentProvider = ({ children }) => {
     setShowYamlButton(false);
     setYamlContent('');
     setShowKnowledgeUpload(false);
+    setMcpServers([]);
+    setSelectedServers([]);
+  };
+
+  /**
+   * Update MCP server selection
+   * @param {Array} servers - Array of selected server names
+   */
+  const updateMcpServers = (servers) => {
+    setSelectedServers(servers);
+    setAgentConfig(prev => ({
+      ...prev,
+      mcp_servers: servers
+    }));
   };
 
   // Context value
@@ -179,7 +199,11 @@ export const AgentProvider = ({ children }) => {
     applyConfigUpdates,
     updateKnowledgeBase,
     updateKnowledgeStorage,
-    resetState
+    resetState,
+    mcpServers,
+    setMcpServers,
+    selectedServers,
+    updateMcpServers
   };
 
   return (

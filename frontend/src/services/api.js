@@ -439,3 +439,76 @@ export const toggleMode = async (currentMode) => {
     throw error;
   }
 };
+
+/**
+ * Fetch list of available MCP servers
+ * @returns {Promise} - Promise that resolves to array of MCP servers
+ */
+export const getMcpServers = async () => {
+  try {
+    console.log("Fetching MCP servers");
+    
+    const response = await fetch(`${API_BASE_URL}/api/mcp-servers/list`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(errorData.detail || 'Error fetching MCP servers');
+      } catch (jsonError) {
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+      }
+    }
+    
+    const data = await response.json();
+    return data.servers || [];
+  } catch (error) {
+    console.error('Error fetching MCP servers:', error);
+    // Return empty array instead of throwing to make it more resilient
+    return [];
+  }
+};
+
+/**
+ * Add a new MCP server
+ * @param {Object} serverInfo - Server information { name, sse_url }
+ * @returns {Promise} - Promise that resolves to the API response
+ */
+export const addMcpServer = async (serverInfo) => {
+  try {
+    console.log("Adding new MCP server:", serverInfo);
+    
+    const response = await fetch(`${API_BASE_URL}/api/mcp-servers/add`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(serverInfo)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(errorData.detail || 'Error adding MCP server');
+      } catch (jsonError) {
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+      }
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error adding MCP server:', error);
+    throw error;
+  }
+};

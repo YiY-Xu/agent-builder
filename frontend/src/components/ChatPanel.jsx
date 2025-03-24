@@ -53,7 +53,7 @@ const ChatPanel = () => {
           placeholder="Type your message..."
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyPress}
           disabled={isLoading}
           rows={1}
         />
