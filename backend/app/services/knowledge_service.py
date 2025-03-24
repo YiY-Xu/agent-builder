@@ -2,21 +2,24 @@ import os
 import tempfile
 import shutil
 import logging
+import json
 from typing import List, Dict, Any, Optional
 import uuid
 from fastapi import UploadFile
-import json
 
 # Import Llama Index components
-from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, StorageContext
+from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, StorageContext, load_index_from_storage
+from llama_index.core.retrievers import VectorIndexRetriever
+from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.indices.managed.llama_cloud import LlamaCloudIndex
+from llama_index.core.node_parser import SentenceSplitter
 
 from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 class KnowledgeService:
-    """Service for handling document uploads and knowledge indexing."""
+    """Service for handling document uploads, knowledge indexing, and retrieval."""
     
     def __init__(self):
         self.llama_cloud_api_key = settings.LLAMA_CLOUD_API_KEY
@@ -178,6 +181,63 @@ class KnowledgeService:
                 "error": str(e)
             }
     
+    def remove_file(self, agent_name: str, file_name: str) -> Dict[str, Any]:
+        """
+        Remove a file from an agent's uploaded files.
+        
+        Args:
+            agent_name: Name of the agent
+            file_name: Name of the file to remove
+            
+        Returns:
+            Dictionary with result information
+        """
+        try:
+            sanitized_name = self._sanitize_name(agent_name)
+            agent_dir = os.path.join(self.temp_upload_dir, sanitized_name)
+            file_path = os.path.join(agent_dir, file_name)
+            
+            if not os.path.exists(file_path):
+                return {
+                    "success": False,
+                    "error": f"File {file_name} not found for agent {agent_name}"
+                }
+            
+            # Remove file
+            os.remove(file_path)
+            
+            # Update metadata
+            metadata_path = os.path.join(agent_dir, "metadata.json")
+            if os.path.exists(metadata_path):
+                with open(metadata_path, 'r') as f:
+                    metadata = json.load(f)
+                
+                if file_name in metadata.get("files", []):
+                    metadata["files"].remove(file_name)
+                
+                # If index or local path exists, mark it as outdated
+                if metadata.get("index_name") or metadata.get("local_path"):
+                    metadata["outdated"] = True
+                
+                with open(metadata_path, 'w') as f:
+                    json.dump(metadata, f, indent=2)
+            
+            return {
+                "success": True,
+                "message": f"File {file_name} removed successfully"
+            }
+                
+        except Exception as e:
+            logger.error(f"Error removing file: {str(e)}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    #
+    # Index Creation Methods
+    #
+            
     async def create_llama_index(self, agent_name: str) -> Dict[str, Any]:
         """
         Create a LlamaCloud index from previously uploaded files.
@@ -457,58 +517,284 @@ class KnowledgeService:
                 "error": str(e)
             }
 
-    def remove_file(self, agent_name: str, file_name: str) -> Dict[str, Any]:
+    #
+    # Query Methods
+    #
+
+    async def query_local_index(self, agent_name: str, query_text: str, similarity_top_k: int = 3) -> Dict[str, Any]:
         """
-        Remove a file from an agent's uploaded files.
+        Query the local index for an agent.
         
         Args:
             agent_name: Name of the agent
-            file_name: Name of the file to remove
+            query_text: The query to search for
+            similarity_top_k: Number of top similar results to return
             
         Returns:
-            Dictionary with result information
+            Dictionary with query results including relevant text snippets
         """
         try:
             sanitized_name = self._sanitize_name(agent_name)
-            agent_dir = os.path.join(self.temp_upload_dir, sanitized_name)
-            file_path = os.path.join(agent_dir, file_name)
+            perm_agent_dir = os.path.join(self.permanent_storage_dir, sanitized_name)
             
-            if not os.path.exists(file_path):
+            if not os.path.exists(perm_agent_dir):
                 return {
                     "success": False,
-                    "error": f"File {file_name} not found for agent {agent_name}"
+                    "error": f"No permanent storage found for agent {agent_name}"
                 }
             
-            # Remove file
-            os.remove(file_path)
+            # Get metadata
+            metadata_path = os.path.join(perm_agent_dir, "metadata.json")
             
-            # Update metadata
-            metadata_path = os.path.join(agent_dir, "metadata.json")
-            if os.path.exists(metadata_path):
-                with open(metadata_path, 'r') as f:
-                    metadata = json.load(f)
+            if not os.path.exists(metadata_path):
+                return {
+                    "success": False,
+                    "error": f"No metadata found for agent {agent_name}"
+                }
                 
-                if file_name in metadata.get("files", []):
-                    metadata["files"].remove(file_name)
-                
-                # If index or local path exists, mark it as outdated
-                if metadata.get("index_name") or metadata.get("local_path"):
-                    metadata["outdated"] = True
-                
-                with open(metadata_path, 'w') as f:
-                    json.dump(metadata, f, indent=2)
+            with open(metadata_path, 'r') as f:
+                metadata = json.load(f)
+            
+            # Check if index exists
+            index_path = metadata.get("index_path")
+            if not index_path or not os.path.exists(index_path):
+                return {
+                    "success": False,
+                    "error": f"No index found for agent {agent_name}, please create an index first"
+                }
+            
+            # Load the index from storage
+            logger.info(f"Loading index for agent {agent_name} from {index_path}")
+            storage_context = StorageContext.from_defaults(persist_dir=index_path)
+            index = load_index_from_storage(storage_context)
+            
+            # Create query engine
+            query_engine = index.as_query_engine(similarity_top_k=similarity_top_k)
+            
+            # Execute query
+            logger.info(f"Executing query for agent {agent_name}: {query_text}")
+            response = query_engine.query(query_text)
+            
+            # Extract source nodes for context
+            source_texts = []
+            source_documents = []
+            
+            if hasattr(response, 'source_nodes'):
+                for node in response.source_nodes:
+                    source_texts.append(node.text)
+                    if hasattr(node, 'metadata') and node.metadata:
+                        source_doc = {
+                            "text": node.text[:200] + "..." if len(node.text) > 200 else node.text,
+                            "file_name": node.metadata.get("file_name", "Unknown"),
+                            "score": node.score if hasattr(node, "score") else None
+                        }
+                        source_documents.append(source_doc)
             
             return {
                 "success": True,
-                "message": f"File {file_name} removed successfully"
+                "agent_name": agent_name,
+                "query": query_text,
+                "response": str(response),
+                "source_texts": source_texts,
+                "source_documents": source_documents,
+                "raw_response_object": response
             }
-                
+            
         except Exception as e:
-            logger.error(f"Error removing file: {str(e)}", exc_info=True)
+            logger.error(f"Error querying local index: {str(e)}", exc_info=True)
             return {
                 "success": False,
                 "error": str(e)
             }
+
+    async def query_llama_cloud_index(self, agent_name: str, query_text: str, similarity_top_k: int = 3) -> Dict[str, Any]:
+        """
+        Query the LlamaCloud index for an agent.
+        
+        Args:
+            agent_name: Name of the agent
+            query_text: The query to search for
+            similarity_top_k: Number of top similar results to return
+            
+        Returns:
+            Dictionary with query results including relevant text snippets
+        """
+        try:
+            sanitized_name = self._sanitize_name(agent_name)
+            temp_agent_dir = os.path.join(self.temp_upload_dir, sanitized_name)
+            
+            if not os.path.exists(temp_agent_dir):
+                return {
+                    "success": False,
+                    "error": f"No data found for agent {agent_name}"
+                }
+            
+            # Get metadata
+            metadata_path = os.path.join(temp_agent_dir, "metadata.json")
+            
+            if not os.path.exists(metadata_path):
+                return {
+                    "success": False,
+                    "error": f"No metadata found for agent {agent_name}"
+                }
+                
+            with open(metadata_path, 'r') as f:
+                metadata = json.load(f)
+            
+            # Check if index exists
+            index_name = metadata.get("index_name")
+            if not index_name:
+                return {
+                    "success": False,
+                    "error": f"No LlamaCloud index found for agent {agent_name}, please create an index first"
+                }
+            
+            # Load the index from LlamaCloud
+            logger.info(f"Loading LlamaCloud index for agent {agent_name}: {index_name}")
+            
+            # Access the index from LlamaCloud
+            index = LlamaCloudIndex(
+                index_name=index_name,
+                project_name=metadata.get("project_name", self.project_name),
+                api_key=self.llama_cloud_api_key
+            )
+            
+            # Create query engine
+            query_engine = index.as_query_engine(
+                similarity_top_k=similarity_top_k
+            )
+            
+            # Execute query
+            logger.info(f"Executing query for agent {agent_name} on LlamaCloud index: {query_text}")
+            response = query_engine.query(query_text)
+            
+            # Extract source nodes for context
+            source_texts = []
+            source_documents = []
+            
+            if hasattr(response, 'source_nodes'):
+                for node in response.source_nodes:
+                    source_texts.append(node.text)
+                    if hasattr(node, 'metadata') and node.metadata:
+                        source_doc = {
+                            "text": node.text[:200] + "..." if len(node.text) > 200 else node.text,
+                            "file_name": node.metadata.get("file_name", "Unknown"),
+                            "score": node.score if hasattr(node, "score") else None
+                        }
+                        source_documents.append(source_doc)
+            
+            return {
+                "success": True,
+                "agent_name": agent_name,
+                "query": query_text,
+                "response": str(response),
+                "source_texts": source_texts,
+                "source_documents": source_documents,
+                "raw_response_object": response
+            }
+            
+        except Exception as e:
+            logger.error(f"Error querying LlamaCloud index: {str(e)}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    async def query_agent_knowledge(self, agent_name: str, query_text: str, similarity_top_k: int = 3) -> Dict[str, Any]:
+        """
+        Query the appropriate index for an agent based on what's available.
+        This method will automatically determine whether to use a local index or LlamaCloud index.
+        
+        Args:
+            agent_name: Name of the agent
+            query_text: The query to search for
+            similarity_top_k: Number of top similar results to return
+            
+        Returns:
+            Dictionary with query results
+        """
+        try:
+            sanitized_name = self._sanitize_name(agent_name)
+            
+            # First check permanent storage for metadata
+            perm_agent_dir = os.path.join(self.permanent_storage_dir, sanitized_name)
+            perm_metadata_path = os.path.join(perm_agent_dir, "metadata.json")
+            
+            # If permanent storage exists with an index, use that first
+            if os.path.exists(perm_metadata_path):
+                with open(perm_metadata_path, 'r') as f:
+                    metadata = json.load(f)
+                    
+                if metadata.get("index_path") and os.path.exists(metadata.get("index_path")):
+                    # Use local index
+                    return await self.query_local_index(agent_name, query_text, similarity_top_k)
+            
+            # Otherwise check for a LlamaCloud index
+            temp_agent_dir = os.path.join(self.temp_upload_dir, sanitized_name)
+            temp_metadata_path = os.path.join(temp_agent_dir, "metadata.json")
+            
+            if os.path.exists(temp_metadata_path):
+                with open(temp_metadata_path, 'r') as f:
+                    metadata = json.load(f)
+                    
+                if metadata.get("index_name"):
+                    # Use LlamaCloud index
+                    return await self.query_llama_cloud_index(agent_name, query_text, similarity_top_k)
+            
+            # No index found
+            return {
+                "success": False,
+                "error": f"No index found for agent {agent_name}, please create an index first"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error querying agent knowledge: {str(e)}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+            
+    async def query_knowledge_base(self, query: str, agent_config: Dict[str, Any]) -> Optional[str]:
+        """
+        Query the knowledge base for relevant information.
+        
+        Args:
+            query: User's query
+            agent_config: Agent configuration including knowledge base info
+            
+        Returns:
+            Retrieved context or None if retrieval fails
+        """
+        try:
+            # Check if knowledge base is configured
+            if "knowledge_base" not in agent_config:
+                logger.info("No knowledge base configured for this agent")
+                return None
+                
+            kb = agent_config["knowledge_base"]
+            storage_type = kb.get("storage_type", "llamacloud" if kb.get("index_name") else "local")
+            agent_name = kb.get("agent_name")
+            
+            if not agent_name:
+                logger.warning("Missing agent name in knowledge base configuration")
+                return None
+            
+            logger.info(f"Querying {storage_type} knowledge base for agent {agent_name} with query: {query}")
+            
+            # Use the query_agent_knowledge method to automatically select the appropriate index
+            query_result = await self.query_agent_knowledge(agent_name, query)
+            
+            if not query_result.get("success", False):
+                logger.warning(f"Query failed: {query_result.get('error', 'Unknown error')}")
+                return None
+            
+            # Format the response for the agent
+            formatted_response = self._format_retrieved_context(query_result)
+            return formatted_response
+            
+        except Exception as e:
+            logger.error(f"Error querying knowledge base: {str(e)}", exc_info=True)
+            return f"Error querying knowledge base: {str(e)}"
     
     def _sanitize_name(self, name: str) -> str:
         """
@@ -518,7 +804,7 @@ class KnowledgeService:
             name: Original agent name
             
         Returns:
-            Sanitized name suitable for index
+            Sanitized name suitable for index and filesystem
         """
         # Replace spaces with hyphens and remove special characters
         sanitized = name.lower().replace(" ", "-")
@@ -536,3 +822,41 @@ class KnowledgeService:
             sanitized = "agent"
             
         return sanitized
+
+
+    def _format_retrieved_context(self, query_result: Dict[str, Any]) -> str:
+        """
+        Format the retrieved context for the agent, including source information.
+        
+        Args:
+            query_result: Result from query_agent_knowledge
+            
+        Returns:
+            Formatted context string
+        """
+        try:
+            if not query_result.get("success", False):
+                return None
+                
+            formatted_text = "Here is the retrieved information from the knowledge base:\n\n"
+            
+            # Add the response text
+            response_text = query_result.get("response", "")
+            formatted_text += response_text + "\n\n"
+            
+            # Add source information if available
+            source_docs = query_result.get("source_documents", [])
+            if source_docs:
+                formatted_text += "Sources:\n"
+                for i, doc in enumerate(source_docs):
+                    file_name = doc.get("file_name", f"Source {i+1}")
+                    score = doc.get("score")
+                    score_text = f" (relevance: {score:.2f})" if score is not None else ""
+                    
+                    formatted_text += f"- {file_name}{score_text}\n"
+            
+            return formatted_text
+            
+        except Exception as e:
+            logger.error(f"Error formatting retrieved context: {str(e)}", exc_info=True)
+            return str(query_result.get("response", "No relevant information found."))

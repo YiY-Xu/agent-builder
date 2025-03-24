@@ -1,10 +1,11 @@
 import os
+import json
 import logging
 from typing import Dict, Any, List, Optional
 import tempfile
 import shutil
 
-from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, Document
+from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, Document, StorageContext
 from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.indices.managed.llama_cloud import LlamaCloudIndex
@@ -20,6 +21,7 @@ class KnowledgeRetrievalService:
     def __init__(self):
         self.llama_cloud_api_key = settings.LLAMA_CLOUD_API_KEY
         self.storage_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'knowledge_storage')
+        self.permanent_storage_dir = self.storage_dir  # Alias for compatibility with query methods
         
     async def query_knowledge_base(self, query: str, agent_config: Dict[str, Any]) -> Optional[str]:
         """
@@ -98,9 +100,9 @@ class KnowledgeRetrievalService:
             logger.error(f"Error querying LlamaCloud: {str(e)}", exc_info=True)
             return None
     
-    async def _query_local_storage(self, query: str, kb: Dict[str, Any]) -> Optional[str]:
+    async def _query_local_index(self, query: str, kb: Dict[str, Any]) -> Optional[str]:
         """
-        Query local document storage for information.
+        Query the local index for information.
         
         Args:
             query: User's query
@@ -113,85 +115,17 @@ class KnowledgeRetrievalService:
             local_path = kb.get("local_path")
             
             if not local_path:
-                logger.warning("Missing local path for local storage query")
+                logger.warning("Missing local path for local index query")
                 return None
             
-            # Make sure the path exists
-            agent_name = local_path.split('/')[-1]
-            sanitized_name = agent_name.lower().replace(' ', '-')
-            actual_path = os.path.join(self.storage_dir, sanitized_name)
-            
-            if not os.path.exists(actual_path):
-                logger.warning(f"Local storage path doesn't exist: {actual_path}")
-                return None
-            
-            # Load documents
-            documents = SimpleDirectoryReader(actual_path).load_data()
-            
-            if not documents:
-                logger.warning(f"No documents found in {actual_path}")
-                return None
-                
-            # Create index
-            index = VectorStoreIndex.from_documents(documents)
-            
-            # Create query engine and query
-            query_engine = index.as_query_engine(similarity_top_k=5)
-            response = query_engine.query(query)
-            
-            # Log and return response
-            logger.info(f"Retrieved information from local storage: {str(response)[:200]}...")
-            
-            # Format the response and source nodes for Claude
-            formatted_response = self._format_retrieved_context(response)
-            return formatted_response
-            
-        except Exception as e:
-            logger.error(f"Error querying local storage: {str(e)}", exc_info=True)
-            return None
-        
-    
-    async def _query_local_index(self, agent_name: str, query_text: str, similarity_top_k: int = 3) -> Dict[str, Any]:
-        """
-        Query the local index for an agent.
-        
-        Args:
-            agent_name: Name of the agent
-            query_text: The query to search for
-            similarity_top_k: Number of top similar results to return
-            
-        Returns:
-            Dictionary with query results including relevant text snippets
-        """
-        try:
-            sanitized_name = self._sanitize_name(agent_name)
-            perm_agent_dir = os.path.join(self.permanent_storage_dir, sanitized_name)
-            
-            if not os.path.exists(perm_agent_dir):
-                return {
-                    "success": False,
-                    "error": f"No permanent storage found for agent {agent_name}"
-                }
-            
-            # Get metadata
-            metadata_path = os.path.join(perm_agent_dir, "metadata.json")
-            
-            if not os.path.exists(metadata_path):
-                return {
-                    "success": False,
-                    "error": f"No metadata found for agent {agent_name}"
-                }
-                
-            with open(metadata_path, 'r') as f:
-                metadata = json.load(f)
+            # Get agent name from path
+            agent_name = os.path.basename(local_path)
             
             # Check if index exists
-            index_path = metadata.get("index_path")
-            if not index_path or not os.path.exists(index_path):
-                return {
-                    "success": False,
-                    "error": f"No index found for agent {agent_name}, please create an index first"
-                }
+            index_path = os.path.join(local_path, "index")
+            if not os.path.exists(index_path):
+                logger.warning(f"No index found at {index_path}")
+                return None
             
             # Load the index from storage
             logger.info(f"Loading index for agent {agent_name} from {index_path}")
@@ -199,44 +133,47 @@ class KnowledgeRetrievalService:
             index = VectorStoreIndex.from_storage(storage_context)
             
             # Create query engine
-            query_engine = index.as_query_engine(similarity_top_k=similarity_top_k)
+            query_engine = index.as_query_engine(similarity_top_k=5)
             
             # Execute query
-            logger.info(f"Executing query for agent {agent_name}: {query_text}")
-            response = query_engine.query(query_text)
+            logger.info(f"Executing query for agent {agent_name}: {query}")
+            response = query_engine.query(query)
             
-            # Extract source nodes for context
-            source_texts = []
-            source_documents = []
-            
-            if hasattr(response, 'source_nodes'):
-                for node in response.source_nodes:
-                    source_texts.append(node.text)
-                    if hasattr(node, 'metadata') and node.metadata:
-                        source_doc = {
-                            "text": node.text[:200] + "..." if len(node.text) > 200 else node.text,
-                            "file_name": node.metadata.get("file_name", "Unknown"),
-                            "score": node.score if hasattr(node, "score") else None
-                        }
-                        source_documents.append(source_doc)
-            
-            return {
-                "success": True,
-                "agent_name": agent_name,
-                "query": query_text,
-                "response": str(response),
-                "source_texts": source_texts,
-                "source_documents": source_documents,
-                "raw_response_object": response
-            }
+            # Format and return response
+            logger.info(f"Retrieved information from local index: {str(response)[:200]}...")
+            formatted_response = self._format_retrieved_context(response)
+            return formatted_response
             
         except Exception as e:
             logger.error(f"Error querying local index: {str(e)}", exc_info=True)
-            return {
-                "success": False,
-                "error": str(e)
-            }
-
+            return None
+    
+    def _sanitize_name(self, name: str) -> str:
+        """
+        Sanitize agent name for use in index name and directory names.
+        
+        Args:
+            name: Original agent name
+            
+        Returns:
+            Sanitized name suitable for index
+        """
+        # Replace spaces with hyphens and remove special characters
+        sanitized = name.lower().replace(" ", "-")
+        sanitized = ''.join(c for c in sanitized if c.isalnum() or c == '-')
+        
+        # Limit length
+        if len(sanitized) > 20:
+            sanitized = sanitized[:20]
+            
+        # Ensure it doesn't start or end with hyphen
+        sanitized = sanitized.strip('-')
+        
+        # If empty after sanitization, use default
+        if not sanitized:
+            sanitized = "agent"
+            
+        return sanitized
     
     def _format_retrieved_context(self, response) -> str:
         """
@@ -258,9 +195,15 @@ class KnowledgeRetrievalService:
             if hasattr(response, 'source_nodes') and response.source_nodes:
                 formatted_text += "Sources:\n"
                 for i, node in enumerate(response.source_nodes):
-                    if hasattr(node, 'node') and hasattr(node.node, 'metadata'):
-                        source = node.node.metadata.get('file_name', f"Source {i+1}")
-                        formatted_text += f"- {source}\n"
+                    source = f"Source {i+1}"
+                    
+                    # Try different ways to access metadata
+                    if hasattr(node, 'metadata') and node.metadata:
+                        source = node.metadata.get('file_name', source)
+                    elif hasattr(node, 'node') and hasattr(node.node, 'metadata'):
+                        source = node.node.metadata.get('file_name', source)
+                    
+                    formatted_text += f"- {source}\n"
             
             return formatted_text
             
