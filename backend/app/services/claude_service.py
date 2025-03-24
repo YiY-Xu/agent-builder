@@ -3,9 +3,9 @@ import json
 from typing import List, Dict, Any, Optional, Union
 import logging
 
-from ..models.request_models import ChatMessage, AgentConfig
-from ..config.settings import settings
-from ..prompts.system_prompt import get_system_prompt
+from app.models.request_models import ChatMessage, AgentConfig
+from app.config.settings import settings
+from app.prompts.system_prompt import get_system_prompt
 
 logger = logging.getLogger(__name__)
 

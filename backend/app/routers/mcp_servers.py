@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 import logging
 import traceback
 from datetime import datetime
-from ..services.mcp_services import connect_sse_with_timeout, process_sse_events, load_mcp_servers, save_mcp_servers, add_mcp_server
-from ..models.mcp_models import MCPServerInput
+from app.services.mcp_services import connect_sse_with_timeout, process_sse_events, load_mcp_servers, save_mcp_servers, add_mcp_server
+from app.models.mcp_models import MCPServerInput
 
 router = APIRouter(prefix="/api/mcp-servers", tags=["MCP Servers"])
 

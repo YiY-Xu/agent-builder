@@ -157,11 +157,11 @@ export const getFiles = async (agentName) => {
  * @param {string} agentName - Name of the agent
  * @returns {Promise} - Promise that resolves to the API response
  */
-export const createIndex = async (agentName) => {
+export const createIndex = async (agentName, type) => {
   try {
     console.log(`Creating index for agent: ${agentName}`);
     
-    const response = await fetch(`${API_BASE_URL}/api/create-index/${encodeURIComponent(agentName)}`, {
+    const response = await fetch(`${API_BASE_URL}/api/create-${type}-index/${encodeURIComponent(agentName)}`, {
       method: 'POST',
     });
 

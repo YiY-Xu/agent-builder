@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, FileText, RefreshCw, PlusCircle, Trash2, Database, HardDrive, Cloud } from 'lucide-react';
 import { useAgent } from '../context/AgentContext';
-import { uploadFile, getFiles, createIndex, saveToLocal, removeFile } from '../services/api';
+import { uploadFile, getFiles, createIndex, removeFile } from '../services/api';
 import '../styles/components.css';
 
 /**
@@ -12,8 +12,6 @@ const KnowledgeUpload = () => {
     agentConfig, 
     updateKnowledgeBase,
     updateKnowledgeStorage,
-    uploadingKnowledge, 
-    setUploadingKnowledge,
     setShowKnowledgeUpload
   } = useAgent();
   
@@ -127,7 +125,7 @@ const KnowledgeUpload = () => {
   };
   
   // Handle saving to local storage
-  const handleSaveLocal = async () => {
+  const handleCreateLocalIndex = async () => {
     if (files.length === 0) {
       setError('Please upload at least one file before saving');
       return;
@@ -143,7 +141,7 @@ const KnowledgeUpload = () => {
       });
       
       // Save files to local storage
-      const result = await saveToLocal(agentConfig.name);
+      const result = await createIndex(agentConfig.name, 'local');
       
       if (result.success) {
         // Update knowledge base info
@@ -189,7 +187,7 @@ const KnowledgeUpload = () => {
       });
       
       // Create index
-      const result = await createIndex(agentConfig.name);
+      const result = await createIndex(agentConfig.name, 'llamacloud');
       
       if (result.success) {
         // Update agent configuration with knowledge base info
@@ -208,7 +206,7 @@ const KnowledgeUpload = () => {
           setShowKnowledgeUpload(false);
         }, 3000);
       } else {
-        setError(result.error || 'Failed to create index');
+        setError(result.error || 'LlamaIndex will be supported soon!');
       }
     } catch (err) {
       console.error('Error creating index:', err);
@@ -324,16 +322,16 @@ const KnowledgeUpload = () => {
                   
                   <div className="knowledge-buttons">
                     <button 
-                      className="save-local-button"
-                      onClick={handleSaveLocal}
+                      className="create-local-index-button"
+                      onClick={handleCreateLocalIndex}
                       disabled={savingLocal || creatingIndex || files.length === 0}
                     >
                       <HardDrive size={16} />
-                      {savingLocal ? 'Saving...' : 'Save to Local Storage'}
+                      {savingLocal ? 'Creating...' : 'Create Local Index'}
                     </button>
                     
                     <button 
-                      className="create-index-button"
+                      className="create-llamacloud-index-button"
                       onClick={handleCreateLlamaIndex}
                       disabled={creatingIndex || savingLocal || files.length === 0}
                     >

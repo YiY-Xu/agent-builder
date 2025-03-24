@@ -24,12 +24,12 @@ logger = logging.getLogger(__name__)
 logger.info(f"Logging to file: {log_file_path}")
 
 # Now import the settings and routers
-from .config.settings import settings
-from .routers.chat import router as chat_router
-from .routers.test_agent import router as test_agent_router
-from .routers.knowledge import router as knowledge_router
-from .routers.logs import router as logs_router
-from .routers.mcp_servers import router as mcp_servers_router
+from app.config.settings import settings
+from app.routers.chat import router as chat_router
+from app.routers.test_agent import router as test_agent_router
+from app.routers.knowledge import router as knowledge_router
+from app.routers.logs import router as logs_router
+from app.routers.mcp_servers import router as mcp_servers_router
 # Log environment variables at startup
 logger.info("Starting application with configuration:")
 logger.info(f"CLAUDE_MODEL: {settings.CLAUDE_MODEL}")

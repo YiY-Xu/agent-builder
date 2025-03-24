@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, P
 from typing import List, Dict, Any, Optional
 import logging
 
-from ..services.knowledge_service import KnowledgeService
+from app.services.knowledge_service import KnowledgeService
 from pydantic import BaseModel
 
 # Set up logging
@@ -111,8 +111,8 @@ async def get_files(
         logger.error(f"Error getting files: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error getting files: {str(e)}")
 
-@router.post("/create-index/{agent_name}", response_model=IndexCreationResponse)
-async def create_index(
+@router.post("/create-llamacloud-index/{agent_name}", response_model=IndexCreationResponse)
+async def create_llamacloud_index(
     agent_name: str = Path(...),
     knowledge_service: KnowledgeService = Depends(get_knowledge_service)
 ):
@@ -126,7 +126,7 @@ async def create_index(
     try:
         logger.info(f"Creating index for agent: {agent_name}")
         
-        result = await knowledge_service.create_index(agent_name)
+        result = await knowledge_service.create_llama_index(agent_name)
         
         if not result.get("success", False):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to create index"))
@@ -137,7 +137,7 @@ async def create_index(
         logger.error(f"Error creating index: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error creating index: {str(e)}")
 
-@router.post("/save-local/{agent_name}", response_model=LocalStorageResponse)
+@router.post("/create-local-index/{agent_name}", response_model=LocalStorageResponse)
 async def save_to_local(
     agent_name: str = Path(...),
     knowledge_service: KnowledgeService = Depends(get_knowledge_service)
@@ -152,7 +152,7 @@ async def save_to_local(
     try:
         logger.info(f"Saving to local storage for agent: {agent_name}")
         
-        result = await knowledge_service.save_to_local(agent_name)
+        result = await knowledge_service.create_local_index(agent_name)
         
         if not result.get("success", False):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to save to local storage"))

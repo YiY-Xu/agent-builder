@@ -11,7 +11,7 @@ import json
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, StorageContext
 from llama_index.indices.managed.llama_cloud import LlamaCloudIndex
 
-from ..config.settings import settings
+from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +178,7 @@ class KnowledgeService:
                 "error": str(e)
             }
     
-    async def create_index(self, agent_name: str) -> Dict[str, Any]:
+    async def create_llama_index(self, agent_name: str) -> Dict[str, Any]:
         """
         Create a LlamaCloud index from previously uploaded files.
         
@@ -288,15 +288,15 @@ class KnowledgeService:
                 "error": str(e)
             }
     
-    async def save_to_local(self, agent_name: str) -> Dict[str, Any]:
+    async def create_local_index(self, agent_name: str) -> Dict[str, Any]:
         """
-        Save uploaded files to a permanent local storage directory.
+        Save uploaded files to a permanent local storage directory and create a LlamaIndex index.
         
         Args:
             agent_name: Name of the agent
             
         Returns:
-            Dictionary with local storage information
+            Dictionary with local storage and index information
         """
         try:
             sanitized_name = self._sanitize_name(agent_name)
@@ -311,6 +311,10 @@ class KnowledgeService:
             # Create permanent storage directory for this agent
             local_path = os.path.join(self.permanent_storage_dir, sanitized_name)
             os.makedirs(local_path, exist_ok=True)
+            
+            # Create index directory for this agent
+            index_path = os.path.join(local_path, "index")
+            os.makedirs(index_path, exist_ok=True)
             
             # Get metadata
             metadata_path = os.path.join(temp_agent_dir, "metadata.json")
@@ -340,6 +344,24 @@ class KnowledgeService:
                 metadata["storage_type"] = "local"
                 metadata["local_path"] = local_path
                 
+                # Create LlamaIndex index from the documents
+                logger.info(f"Creating local index for agent {agent_name}")
+                
+                # Load documents from the permanent directory
+                documents = SimpleDirectoryReader(local_path, recursive=False).load_data()
+                logger.info(f"Loaded {len(documents)} documents for indexing")
+                
+                # Create the index 
+                index = VectorStoreIndex.from_documents(documents)
+                
+                # Persist the index to disk
+                index.storage_context.persist(persist_dir=index_path)
+                
+                # Update metadata with index information
+                metadata["index_path"] = index_path
+                metadata["has_index"] = True
+                metadata["index_document_count"] = len(documents)
+                
                 # Save updated metadata to both temp and permanent directories
                 with open(metadata_path, 'w') as f:
                     json.dump(metadata, f, indent=2)
@@ -349,13 +371,17 @@ class KnowledgeService:
                     json.dump(metadata, f, indent=2)
                 
                 logger.info(f"Saved {file_count} files to local storage at {local_path}")
+                logger.info(f"Created index with {len(documents)} documents at {index_path}")
                 
                 return {
                     "success": True,
                     "storage_type": "local",
                     "local_path": local_path,
+                    "index_path": index_path,
                     "document_count": file_count,
-                    "file_names": metadata.get("files", [])
+                    "index_document_count": len(documents),
+                    "file_names": metadata.get("files", []),
+                    "has_index": True
                 }
             else:
                 # No metadata file, get files from directory
@@ -375,6 +401,19 @@ class KnowledgeService:
                     
                     shutil.copy2(source_path, dest_path)
                     file_count += 1
+                    
+                # Create LlamaIndex index from the documents
+                logger.info(f"Creating local index for agent {agent_name}")
+                
+                # Load documents from the permanent directory
+                documents = SimpleDirectoryReader(local_path, recursive=False).load_data()
+                logger.info(f"Loaded {len(documents)} documents for indexing")
+                
+                # Create the index
+                index = VectorStoreIndex.from_documents(documents)
+                
+                # Persist the index to disk
+                index.storage_context.persist(persist_dir=index_path)
                 
                 # Create metadata
                 metadata = {
@@ -383,7 +422,10 @@ class KnowledgeService:
                     "storage_type": "local",
                     "local_path": local_path,
                     "index_name": None,
-                    "project_name": None
+                    "project_name": None,
+                    "index_path": index_path,
+                    "has_index": True,
+                    "index_document_count": len(documents)
                 }
                 
                 # Save metadata to both directories
@@ -396,21 +438,25 @@ class KnowledgeService:
                     json.dump(metadata, f, indent=2)
                 
                 logger.info(f"Saved {file_count} files to local storage at {local_path}")
+                logger.info(f"Created index with {len(documents)} documents at {index_path}")
                 
                 return {
                     "success": True,
                     "storage_type": "local",
                     "local_path": local_path,
+                    "index_path": index_path,
                     "document_count": file_count,
-                    "file_names": files
+                    "index_document_count": len(documents),
+                    "file_names": files,
+                    "has_index": True
                 }
         except Exception as e:
-            logger.error(f"Error saving to local storage: {str(e)}", exc_info=True)
+            logger.error(f"Error creating local index: {str(e)}", exc_info=True)
             return {
                 "success": False,
                 "error": str(e)
             }
-    
+
     def remove_file(self, agent_name: str, file_name: str) -> Dict[str, Any]:
         """
         Remove a file from an agent's uploaded files.

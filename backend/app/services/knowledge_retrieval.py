@@ -10,7 +10,7 @@ from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.indices.managed.llama_cloud import LlamaCloudIndex
 from llama_index.core.node_parser import SentenceSplitter
 
-from ..config.settings import settings
+from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class KnowledgeRetrievalService:
                 return await self._query_llamacloud(query, kb)
             elif storage_type == "local" and kb.get("local_path"):
                 # Local storage retrieval
-                return await self._query_local_storage(query, kb)
+                return await self._query_local_index(query, kb)
             else:
                 logger.warning(f"Unknown knowledge base configuration: {kb}")
                 return None
@@ -149,6 +149,94 @@ class KnowledgeRetrievalService:
         except Exception as e:
             logger.error(f"Error querying local storage: {str(e)}", exc_info=True)
             return None
+        
+    
+    async def _query_local_index(self, agent_name: str, query_text: str, similarity_top_k: int = 3) -> Dict[str, Any]:
+        """
+        Query the local index for an agent.
+        
+        Args:
+            agent_name: Name of the agent
+            query_text: The query to search for
+            similarity_top_k: Number of top similar results to return
+            
+        Returns:
+            Dictionary with query results including relevant text snippets
+        """
+        try:
+            sanitized_name = self._sanitize_name(agent_name)
+            perm_agent_dir = os.path.join(self.permanent_storage_dir, sanitized_name)
+            
+            if not os.path.exists(perm_agent_dir):
+                return {
+                    "success": False,
+                    "error": f"No permanent storage found for agent {agent_name}"
+                }
+            
+            # Get metadata
+            metadata_path = os.path.join(perm_agent_dir, "metadata.json")
+            
+            if not os.path.exists(metadata_path):
+                return {
+                    "success": False,
+                    "error": f"No metadata found for agent {agent_name}"
+                }
+                
+            with open(metadata_path, 'r') as f:
+                metadata = json.load(f)
+            
+            # Check if index exists
+            index_path = metadata.get("index_path")
+            if not index_path or not os.path.exists(index_path):
+                return {
+                    "success": False,
+                    "error": f"No index found for agent {agent_name}, please create an index first"
+                }
+            
+            # Load the index from storage
+            logger.info(f"Loading index for agent {agent_name} from {index_path}")
+            storage_context = StorageContext.from_defaults(persist_dir=index_path)
+            index = VectorStoreIndex.from_storage(storage_context)
+            
+            # Create query engine
+            query_engine = index.as_query_engine(similarity_top_k=similarity_top_k)
+            
+            # Execute query
+            logger.info(f"Executing query for agent {agent_name}: {query_text}")
+            response = query_engine.query(query_text)
+            
+            # Extract source nodes for context
+            source_texts = []
+            source_documents = []
+            
+            if hasattr(response, 'source_nodes'):
+                for node in response.source_nodes:
+                    source_texts.append(node.text)
+                    if hasattr(node, 'metadata') and node.metadata:
+                        source_doc = {
+                            "text": node.text[:200] + "..." if len(node.text) > 200 else node.text,
+                            "file_name": node.metadata.get("file_name", "Unknown"),
+                            "score": node.score if hasattr(node, "score") else None
+                        }
+                        source_documents.append(source_doc)
+            
+            return {
+                "success": True,
+                "agent_name": agent_name,
+                "query": query_text,
+                "response": str(response),
+                "source_texts": source_texts,
+                "source_documents": source_documents,
+                "raw_response_object": response
+            }
+            
+        except Exception as e:
+            logger.error(f"Error querying local index: {str(e)}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
     
     def _format_retrieved_context(self, response) -> str:
         """

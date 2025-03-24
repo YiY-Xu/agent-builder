@@ -82,3 +82,5 @@ node_modules/
 # OS files
 .DS_Store
 
+temp_uploads/
+knowledge_storage/

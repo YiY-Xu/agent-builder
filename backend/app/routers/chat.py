@@ -3,12 +3,13 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 import logging
 
-logger = logging.getLogger(__name__)
+from app.services.claude_service import ClaudeService
+from app.models.request_models import ChatRequest
+from app.models.response_models import ChatResponse
+from app.utils.config_extractor import extract_config_updates, should_generate_yaml, clean_response
+from app.services.yaml_service import generate_yaml as yaml_generator
 
-from ..services.claude_service import ClaudeService
-from ..models.request_models import ChatRequest
-from ..models.response_models import ChatResponse
-from ..utils.config_extractor import extract_config_updates, should_generate_yaml, clean_response
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api",
@@ -73,8 +74,6 @@ async def generate_yaml(request: Dict[str, Any]):
     - Takes the complete agent configuration
     - Returns formatted YAML as a string
     """
-    from ..services.yaml_service import generate_yaml as yaml_generator
-    
     try:
         yaml_content = yaml_generator(request)
         return {"yaml": yaml_content}

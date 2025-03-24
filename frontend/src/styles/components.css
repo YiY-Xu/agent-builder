@@ -574,7 +574,7 @@
     margin-bottom: 1rem;
   }
   
-  .save-local-button, .create-index-button {
+  .create-local-index-button, .create-llamacloud-index-button {
     display: flex;
     align-items: center;
     justify-content: center;

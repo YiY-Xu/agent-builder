@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Union, List, Dict, Any, Optional
 
-from ..models.response_models import ConfigUpdate
+from app.models.response_models import ConfigUpdate
 
 logger = logging.getLogger(__name__)
 

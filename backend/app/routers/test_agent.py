@@ -3,13 +3,13 @@ from typing import List, Dict, Any, Optional
 import logging
 import re
 import yaml
-
-from ..services.claude_service import ClaudeService
-from ..services.knowledge_retrieval import KnowledgeRetrievalService
-from ..services.yaml_service import generate_yaml
-from ..models.request_models import ChatMessage
-from ..models.response_models import ChatResponse
 from pydantic import BaseModel, Field
+
+from app.services.claude_service import ClaudeService
+from app.services.knowledge_retrieval import KnowledgeRetrievalService
+from app.services.yaml_service import generate_yaml
+from app.models.request_models import ChatMessage
+from app.models.response_models import ChatResponse
 
 # Set up logging
 logger = logging.getLogger(__name__)
