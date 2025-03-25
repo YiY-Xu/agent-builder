@@ -841,10 +841,6 @@ const TestAgent = () => {
           ) : (
             <div className="empty-state">
               <p>Upload a YAML file to view agent details</p>
-              <button className="upload-button" onClick={triggerFileUpload}>
-                <Upload size={18} />
-                <span>Upload YAML</span>
-              </button>
             </div>
           )}
         </div>
