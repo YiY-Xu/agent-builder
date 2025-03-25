@@ -942,44 +942,53 @@
 
 /* Logs styles */
 .logs-container {
-  height: calc(100vh - 64px);
+  height: 100%;
+  max-height: 70vh;
   overflow-y: auto;
-  background: #1a1a1a;
-  color: #e0e0e0;
-  font-family: monospace;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  font-family: 'Courier New', monospace;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
 .logs-info {
-  padding: 8px;
-  margin-bottom: 12px;
-  background: #2d3748;
-  border-radius: 4px;
-  color: #cbd5e1;
-  font-size: 12px;
-  text-align: center;
-}
-
-.loading-logs {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: center;
-  padding: 16px;
-  color: #cbd5e1;
+  padding: 8px 12px;
+  background-color: #e2e8f0;
+  border-bottom: 1px solid #cbd5e1;
+  font-size: 14px;
+  color: #475569;
 }
 
 .log-line {
-  padding: 2px 0;
+  padding: 4px 12px;
   white-space: pre-wrap;
   word-break: break-all;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.log-time {
+  color: #047857;
+  font-weight: bold;
+  margin-right: 8px;
+  display: inline-block;
+  min-width: 70px;
+}
+
+.loading-logs {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #64748b;
 }
 
 .no-logs {
+  padding: 20px;
   text-align: center;
-  padding: 16px;
-  color: #718096;
+  color: #64748b;
 }
 
 /* New content highlight */
@@ -1199,4 +1208,13 @@
 
 .edit-button:hover {
   background-color: #5b4cc4;
+}
+
+.relevance-score-log {
+  font-weight: bold;
+  color: #0891b2; /* Teal/cyan color */
+  background-color: rgba(8, 145, 178, 0.1); /* Light teal background */
+  padding: 2px 0;
+  border-left: 3px solid #0891b2; /* Teal border */
+  display: block;
 }

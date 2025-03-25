@@ -152,6 +152,9 @@ Remember to act consistently with your configuration and purpose.
             
             if retrieved_context:
                 logger.info("Retrieved relevant document - augmenting user query")
+                print("--------------------------------")
+                print(retrieved_context)
+                print("--------------------------------")
                 augmented_message = f"""
 {request.message}
 

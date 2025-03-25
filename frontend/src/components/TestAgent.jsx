@@ -529,27 +529,75 @@ const TestAgent = () => {
   );
   
   // Render system logs tab content
-  const renderSystemLogsTab = () => (
-    <div className="logs-container" ref={logsContainerRef}>
-      <div className="logs-info">
-        Showing the latest 300 lines of system logs
-      </div>
-      {isLoadingLogs ? (
-        <div className="loading-logs">
-          <LoadingIndicator />
-          <span>Loading logs...</span>
+  const renderSystemLogsTab = () => {
+    // Format each log line to extract just the time portion
+    const formatLogLine = (log) => {
+      // Match pattern like "2025-03-24 19:01:51,710 - app.services.claude_service - INFO - Message"
+      const match = log.match(/\d{4}-\d{2}-\d{2}\s+(\d{2}:\d{2}:\d{2}),\d{3}\s+-\s+(\S+)\s+-\s+(\S+)\s+-\s+(.*)/);
+      
+      if (match) {
+        const time = match[1]; // Just the HH:MM:SS part
+        const service = match[2]; // Service name (e.g., app.services.claude_service)
+        const level = match[3]; // Log level (e.g., INFO)
+        const message = match[4]; // The actual message
+        
+        // Check if this is a relevance score log
+        const isRelevanceScoreLog = 
+          message.includes("Document ") && 
+          (message.includes("Score:") || message.includes("relevance score"));
+        
+        return (
+          <span className={isRelevanceScoreLog ? "relevance-score-log" : ""}>
+            <span className="log-time">{time}</span>{level} {message}
+          </span>
+        );
+      }
+      
+      // Fallback to a simpler regex if the first one doesn't match
+      const timeMatch = log.match(/\d{4}-\d{2}-\d{2}\s+(\d{2}:\d{2}:\d{2}),\d{3}\s+-/);
+      if (timeMatch && timeMatch[1]) {
+        const time = timeMatch[1];
+        // Get everything after the timestamp
+        const rest = log.replace(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d{3}\s+-\s+/, '');
+        
+        // Check if this is a relevance score log
+        const isRelevanceScoreLog = 
+          rest.includes("Document ") && 
+          (rest.includes("Score:") || rest.includes("relevance score"));
+        
+        return (
+          <span className={isRelevanceScoreLog ? "relevance-score-log" : ""}>
+            <span className="log-time">{time}</span>{rest}
+          </span>
+        );
+      }
+      
+      // If no regex matches, return the original log
+      return log;
+    };
+
+    return (
+      <div className="logs-container" ref={logsContainerRef}>
+        <div className="logs-info">
+          Showing the latest 300 lines of system logs
         </div>
-      ) : logs.length > 0 ? (
-        logs.map((log, index) => (
-          <div key={index} className="log-line">
-            {log}
+        {isLoadingLogs ? (
+          <div className="loading-logs">
+            <LoadingIndicator />
+            <span>Loading logs...</span>
           </div>
-        ))
-      ) : (
-        <div className="no-logs">No logs available</div>
-      )}
-    </div>
-  );
+        ) : logs.length > 0 ? (
+          logs.map((log, index) => (
+            <div key={index} className="log-line">
+              {formatLogLine(log)}
+            </div>
+          ))
+        ) : (
+          <div className="no-logs">No logs available</div>
+        )}
+      </div>
+    );
+  };
   
   // Refresh logs function
   const refreshLogs = async () => {

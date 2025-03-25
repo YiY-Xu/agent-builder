@@ -521,7 +521,7 @@ class KnowledgeService:
     # Query Methods
     #
 
-    async def query_local_index(self, agent_name: str, query_text: str, similarity_top_k: int = 3) -> Dict[str, Any]:
+    async def query_local_index(self, agent_name: str, index_info: str, query_text: str, similarity_top_k: int = 3) -> Dict[str, Any]:
         """
         Query the local index for an agent.
         
@@ -534,38 +534,7 @@ class KnowledgeService:
             Dictionary with query results including relevant text snippets
         """
         try:
-            sanitized_name = self._sanitize_name(agent_name)
-            perm_agent_dir = os.path.join(self.permanent_storage_dir, sanitized_name)
-            
-            if not os.path.exists(perm_agent_dir):
-                return {
-                    "success": False,
-                    "error": f"No permanent storage found for agent {agent_name}"
-                }
-            
-            # Get metadata
-            metadata_path = os.path.join(perm_agent_dir, "metadata.json")
-            
-            if not os.path.exists(metadata_path):
-                return {
-                    "success": False,
-                    "error": f"No metadata found for agent {agent_name}"
-                }
-                
-            with open(metadata_path, 'r') as f:
-                metadata = json.load(f)
-            
-            # Check if index exists
-            index_path = metadata.get("index_info")
-            if not index_path or not os.path.exists(index_path):
-                return {
-                    "success": False,
-                    "error": f"No index found for agent {agent_name}, please create an index first"
-                }
-            
-            # Load the index from storage
-            logger.info(f"Loading index for agent {agent_name} from {index_path}")
-            storage_context = StorageContext.from_defaults(persist_dir=index_path)
+            storage_context = StorageContext.from_defaults(persist_dir=index_info)
             index = load_index_from_storage(storage_context)
             
             # Create query engine
@@ -700,7 +669,7 @@ class KnowledgeService:
                 "error": str(e)
             }
 
-    async def query_agent_knowledge(self, agent_name: str, storage_type: str, query_text: str, similarity_top_k: int = 3) -> Dict[str, Any]:
+    async def query_agent_knowledge(self, agent_name: str, index_info: str, storage_type: str, query_text: str, similarity_top_k: int = 3) -> Dict[str, Any]:
         """
         Query the appropriate index for an agent based on what's available.
         This method will automatically determine whether to use a local index or LlamaCloud index.
@@ -721,13 +690,8 @@ class KnowledgeService:
             perm_metadata_path = os.path.join(perm_agent_dir, "metadata.json")
             
             # If permanent storage exists with an index, use that first
-            if storage_type == "local" and os.path.exists(perm_metadata_path):
-                with open(perm_metadata_path, 'r') as f:
-                    metadata = json.load(f)
-                    
-                if metadata.get("index_info") and os.path.exists(metadata.get("index_info")):
-                    # Use local index
-                    return await self.query_local_index(agent_name, query_text, similarity_top_k)
+            if storage_type == "local" and index_info and os.path.exists(perm_metadata_path):
+                return await self.query_local_index(agent_name, index_info, query_text, similarity_top_k)
             
             else: # Otherwise check for a LlamaCloud index
                 temp_agent_dir = os.path.join(self.temp_upload_dir, sanitized_name)
@@ -774,32 +738,50 @@ class KnowledgeService:
                 return None
                 
             kb = agent_config["knowledge_base"]
-            storage_type = kb.get("storage_type", "llamacloud" if kb.get("index_info") else "local")
-            agent_name = kb.get("agent_name")
+            print("-------------------------------- ")
+            print(f"kb: {kb}")
+            print("--------------------------------")
+            agent_name = agent_config.get("name")
+            storage_type = kb.get("storage_type")
+            index_info = kb.get("index_info")
             
             if not agent_name:
                 logger.warning("Missing agent name in knowledge base configuration")
                 return None
             
-            logger.info(f"Querying {storage_type} knowledge base for agent {agent_name} with query: {query}")
+            logger.info(f"Querying {storage_type} knowledge base for agent  with query: {query}")
+            logger.info(f"Using relevance threshold: {relevance_threshold}, top_k: {similarity_top_k}")
             
             # Use the query_agent_knowledge method with the provided parameters
-            query_result = await self.query_agent_knowledge(agent_name, storage_type, query, similarity_top_k)
+            query_result = await self.query_agent_knowledge(agent_name, index_info, storage_type, query, similarity_top_k)
             
             if not query_result.get("success", False):
                 logger.warning(f"Query failed: {query_result.get('error', 'Unknown error')}")
                 return None
             
+            # Log relevance scores for all documents
+            source_docs = query_result.get("source_documents", [])
+            
+            if source_docs:
+                logger.info(f"Retrieved {len(source_docs)} documents for query: '{query}'")
+                for i, doc in enumerate(source_docs):
+                    score = doc.get("score")
+                    file_name = doc.get("file_name", f"Document {i+1}")
+                    score_info = f"Score: {score:.4f}" if score is not None else "No score"
+                    meets_threshold = "✓" if score is not None and score >= relevance_threshold else "✗"
+                    logger.info(f"Document {i+1}: {file_name} - {score_info} {meets_threshold}")
+            else:
+                logger.info("No documents retrieved from knowledge base")
+            
             # Check if any of the retrieved documents meet the relevance threshold
             has_relevant_docs = False
-            source_docs = query_result.get("source_documents", [])
             
             if source_docs:
                 for doc in source_docs:
                     score = doc.get("score")
                     if score is not None and score >= relevance_threshold:
                         has_relevant_docs = True
-                        logger.info(f"Found relevant document with score: {score}")
+                        logger.info(f"Found relevant document with score: {score:.4f} (threshold: {relevance_threshold})")
                         break
             
             if not has_relevant_docs:
@@ -869,7 +851,9 @@ class KnowledgeService:
                 for i, doc in enumerate(source_docs):
                     file_name = doc.get("file_name", f"Source {i+1}")
                     score = doc.get("score")
-                    score_text = f" (relevance: {score:.2f})" if score is not None else ""
+                    
+                    # Format score with 4 decimal places for precision
+                    score_text = f" (relevance score: {score:.4f})" if score is not None else ""
                     
                     formatted_text += f"- {file_name}{score_text}\n"
             
