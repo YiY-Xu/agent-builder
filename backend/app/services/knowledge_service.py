@@ -106,7 +106,7 @@ class KnowledgeService:
             metadata = {
                 "agent_name": agent_name,
                 "files": [],
-                "index_name": None,
+                "index_info": None,
                 "project_name": self.project_name,
                 "storage_type": None,
                 "local_path": None
@@ -138,7 +138,7 @@ class KnowledgeService:
                 return {
                     "agent_name": agent_name,
                     "files": [],
-                    "index_name": None,
+                    "index_info": None,
                     "project_name": self.project_name,
                     "storage_type": None,
                     "local_path": None,
@@ -154,11 +154,11 @@ class KnowledgeService:
                 return {
                     "agent_name": agent_name,
                     "files": metadata.get("files", []),
-                    "index_name": metadata.get("index_name"),
+                    "index_info": metadata.get("index_info"),
                     "project_name": metadata.get("project_name", self.project_name),
                     "storage_type": metadata.get("storage_type"),
                     "local_path": metadata.get("local_path"),
-                    "has_index": metadata.get("index_name") is not None or metadata.get("local_path") is not None
+                    "has_index": metadata.get("index_info") is not None or metadata.get("local_path") is not None
                 }
             else:
                 # No metadata file, get files from directory
@@ -167,7 +167,7 @@ class KnowledgeService:
                 return {
                     "agent_name": agent_name,
                     "files": files,
-                    "index_name": None,
+                    "index_info": None,
                     "project_name": self.project_name,
                     "storage_type": None,
                     "local_path": None,
@@ -216,7 +216,7 @@ class KnowledgeService:
                     metadata["files"].remove(file_name)
                 
                 # If index or local path exists, mark it as outdated
-                if metadata.get("index_name") or metadata.get("local_path"):
+                if metadata.get("index_info") or metadata.get("local_path"):
                     metadata["outdated"] = True
                 
                 with open(metadata_path, 'w') as f:
@@ -266,11 +266,11 @@ class KnowledgeService:
                 
                 # Check if index already exists
                 if metadata.get("index_info") or metadata.get("index_name"):
-                    index_name = metadata.get("index_info") or metadata.get("index_name")
+                    index_info = metadata.get("index_info") or metadata.get("index_name")
                     return {
                         "success": True,
                         "storage_type": "llamacloud",
-                        "index_info": index_name,
+                        "index_info": index_info,
                         "project_name": metadata.get("project_name", self.project_name),
                         "document_count": len(metadata.get("files", [])),
                         "file_names": metadata.get("files", []),
@@ -297,7 +297,7 @@ class KnowledgeService:
                 metadata = {
                     "agent_name": agent_name,
                     "files": files,
-                    "index_name": None,
+                    "index_info": None,
                     "project_name": self.project_name,
                     "storage_type": None,
                     "local_path": None
@@ -307,9 +307,9 @@ class KnowledgeService:
                     json.dump(metadata, f, indent=2)
             
             # Create index name
-            index_name = f"{self.index_name_prefix}-{sanitized_name}-{uuid.uuid4().hex[:8]}"
+            index_info = f"{self.index_name_prefix}-{sanitized_name}-{uuid.uuid4().hex[:8]}"
             
-            logger.info(f"Creating LlamaCloud index: {index_name} with {len(metadata['files'])} documents")
+            logger.info(f"Creating LlamaCloud index: {index_info} with {len(metadata['files'])} documents")
             
             # Load documents from the directory
             documents = SimpleDirectoryReader(agent_dir, recursive=False).load_data()
@@ -318,18 +318,17 @@ class KnowledgeService:
             # Create the index and upload documents
             index = LlamaCloudIndex.from_documents(
                 documents, 
-                index_name,
+                index_info,
                 project_name=self.project_name,
                 api_key=self.llama_cloud_api_key
             )
             
-            logger.info(f"Successfully created index {index_name}")
+            logger.info(f"Successfully created index {index_info}")
             
             # Update metadata with index name
-            metadata["index_name"] = index_name
+            metadata["index_info"] = index_info
             metadata["project_name"] = self.project_name
             metadata["storage_type"] = "llamacloud"
-            metadata["index_info"] = index_name
             with open(metadata_path, 'w') as f:
                 json.dump(metadata, f, indent=2)
             
@@ -337,7 +336,7 @@ class KnowledgeService:
             return {
                 "success": True,
                 "storage_type": "llamacloud",
-                "index_info": index_name,
+                "index_info": index_info,
                 "project_name": self.project_name,
                 "document_count": len(documents),
                 "file_names": metadata["files"]
@@ -483,7 +482,6 @@ class KnowledgeService:
                     "files": files,
                     "storage_type": "local",
                     "local_path": local_path,
-                    "index_name": None,
                     "project_name": None,
                     "index_info": index_path,
                     "has_index": True,
@@ -644,19 +642,19 @@ class KnowledgeService:
                 metadata = json.load(f)
             
             # Check if index exists
-            index_name = metadata.get("index_info") or metadata.get("index_name")
-            if not index_name:
+            index_info = metadata.get("index_info") or metadata.get("index_name")
+            if not index_info:
                 return {
                     "success": False,
                     "error": f"No LlamaCloud index found for agent {agent_name}, please create an index first"
                 }
             
             # Load the index from LlamaCloud
-            logger.info(f"Loading LlamaCloud index for agent {agent_name}: {index_name}")
+            logger.info(f"Loading LlamaCloud index for agent {agent_name}: {index_info}")
             
             # Access the index from LlamaCloud
             index = LlamaCloudIndex(
-                index_name=index_name,
+                index_name=index_info,
                 project_name=metadata.get("project_name", self.project_name),
                 api_key=self.llama_cloud_api_key
             )
@@ -739,7 +737,7 @@ class KnowledgeService:
                 with open(temp_metadata_path, 'r') as f:
                     metadata = json.load(f)
                     
-                if metadata.get("index_name"):
+                if metadata.get("index_info"):
                     # Use LlamaCloud index
                     return await self.query_llama_cloud_index(agent_name, query_text, similarity_top_k)
             
@@ -774,7 +772,7 @@ class KnowledgeService:
                 return None
                 
             kb = agent_config["knowledge_base"]
-            storage_type = kb.get("storage_type", "llamacloud" if kb.get("index_name") else "local")
+            storage_type = kb.get("storage_type", "llamacloud" if kb.get("index_info") else "local")
             agent_name = kb.get("agent_name")
             
             if not agent_name:

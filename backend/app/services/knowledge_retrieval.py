@@ -71,16 +71,16 @@ class KnowledgeRetrievalService:
             Retrieved context or None if retrieval fails
         """
         try:
-            index_name = kb.get("index_info")
+            index_info = kb.get("index_info")
             project_name = kb.get("project_name", settings.LLAMA_CLOUD_PROJECT_NAME)
             
-            if not index_name:
-                logger.warning("Missing index name for LlamaCloud query")
+            if not index_info:
+                logger.warning("Missing index info for LlamaCloud query")
                 return None
                 
             # Initialize LlamaCloud index
             index = LlamaCloudIndex(
-                index_name=index_name,
+                index_name=index_info,
                 project_name=project_name,
                 api_key=self.llama_cloud_api_key
             )

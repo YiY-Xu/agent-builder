@@ -45,7 +45,7 @@ const KnowledgeUpload = () => {
         // Update agent configuration with knowledge base info
         updateKnowledgeBase({
           storage_type: result.storage_type,
-          index_name: result.index_name,
+          index_info: result.index_info,
           project_name: result.project_name,
           local_path: result.local_path,
           document_count: result.files.length,

@@ -111,7 +111,7 @@ In normal mode, provide only the response without the analytical sections."""
                             try:
                                 # Initialize the index from LlamaCloud
                                 index = LlamaCloudIndex(
-                                    index_info="{yaml_structure["knowledge_base"]["index_info"]}",
+                                    index_name="{yaml_structure["knowledge_base"]["index_info"]}",
                                     project_name="{yaml_structure["knowledge_base"]["project_name"]}",
                                     api_key=api_key
                                 )
