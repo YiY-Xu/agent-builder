@@ -5,8 +5,9 @@ import asyncio
 import time
 from datetime import datetime
 import logging
+from base64 import b64encode
 from fastapi import HTTPException
-
+import traceback
 logger = logging.getLogger(__name__)
 
 # Path to the JSON file for storing MCP server data
@@ -108,7 +109,7 @@ async def save_mcp_servers(servers):
         logger.error(f"Error saving MCP servers: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error saving MCP servers: {str(e)}")
 
-async def connect_sse_with_timeout(url: str, timeout: int = 10):
+async def connect_sse_with_timeout(url: str, auth_info: dict = None, timeout: int = 10):
     """
     Connect to an SSE endpoint with a timeout.
     
@@ -125,7 +126,17 @@ async def connect_sse_with_timeout(url: str, timeout: int = 10):
         
         # Connect to the SSE endpoint
         session = aiohttp.ClientSession(timeout=timeout_obj)
-        response = await session.get(url, headers={'Accept': 'text/event-stream'})
+
+        headers = {'Accept': 'text/event-stream'}
+        if auth_info:
+            if auth_info.get('auth_type') == 'bearer':
+                headers['Authorization'] = f"Bearer {auth_info.get('auth_token')}"
+            elif auth_info.get('auth_type') == 'api_key':
+                headers['X-API-Key'] = auth_info.get('api_key')
+            elif auth_info.get('auth_type') == 'basic':
+                auth_string = b64encode(f"{auth_info.get('username')}:{auth_info.get('password')}".encode()).decode()
+                headers['Authorization'] = f"Basic {auth_string}"
+        response = await session.get(url, headers=headers)
         
         if response.status != 200:
             error_text = await response.text()
