@@ -28,7 +28,7 @@ def get_system_prompt(agent_config: Union[Dict[str, Any], BaseModel]) -> str:
         logger.info(f"Generating system prompt with config: {config_json}")
         
         # Check if knowledge base has been added
-        has_knowledge_base = config_dict.get("knowledge_base", {}).get("index_name") is not None or config_dict.get("knowledge_base", {}).get("local_path") is not None
+        has_knowledge_base = config_dict.get("knowledge_base", {}).get("index_info") is not None
         knowledge_base_prompt = ""
         
         if has_knowledge_base:

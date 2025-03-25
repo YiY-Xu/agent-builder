@@ -24,7 +24,7 @@ class FileUploadResponse(BaseModel):
 class FileListResponse(BaseModel):
     agent_name: str
     files: List[str]
-    index_name: Optional[str] = None
+    index_info: Optional[str] = None
     project_name: Optional[str] = None
     storage_type: Optional[str] = None
     local_path: Optional[str] = None
@@ -34,7 +34,7 @@ class FileListResponse(BaseModel):
 class IndexCreationResponse(BaseModel):
     success: bool
     storage_type: Optional[str] = None
-    index_name: Optional[str] = None
+    index_info: Optional[str] = None
     project_name: Optional[str] = None
     local_path: Optional[str] = None
     document_count: Optional[int] = None
@@ -55,6 +55,28 @@ class FileRemovalResponse(BaseModel):
     success: bool
     message: Optional[str] = None
     error: Optional[str] = None
+
+class KnowledgeCreateResponse(BaseModel):
+    """Knowledge create response model"""
+    success: bool
+    storage_type: Optional[str] = None
+    local_path: Optional[str] = None
+    index_info: Optional[str] = None
+    project_name: Optional[str] = None
+    document_count: Optional[int] = None
+    file_names: Optional[List[str]] = None
+    has_index: Optional[bool] = None
+    message: Optional[str] = None
+    error: Optional[str] = None
+
+class KnowledgeBaseConfig(BaseModel):
+    """Knowledge base configuration model"""
+    storage_type: Optional[str] = None
+    local_path: Optional[str] = None
+    index_info: Optional[str] = None
+    project_name: Optional[str] = None
+    document_count: Optional[int] = None
+    file_names: Optional[List[str]] = None
 
 # Dependency to get KnowledgeService instance
 def get_knowledge_service():

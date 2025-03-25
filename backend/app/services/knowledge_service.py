@@ -265,11 +265,12 @@ class KnowledgeService:
                     metadata = json.load(f)
                 
                 # Check if index already exists
-                if metadata.get("index_name"):
+                if metadata.get("index_info") or metadata.get("index_name"):
+                    index_name = metadata.get("index_info") or metadata.get("index_name")
                     return {
                         "success": True,
                         "storage_type": "llamacloud",
-                        "index_name": metadata["index_name"],
+                        "index_info": index_name,
                         "project_name": metadata.get("project_name", self.project_name),
                         "document_count": len(metadata.get("files", [])),
                         "file_names": metadata.get("files", []),
@@ -328,6 +329,7 @@ class KnowledgeService:
             metadata["index_name"] = index_name
             metadata["project_name"] = self.project_name
             metadata["storage_type"] = "llamacloud"
+            metadata["index_info"] = index_name
             with open(metadata_path, 'w') as f:
                 json.dump(metadata, f, indent=2)
             
@@ -335,7 +337,7 @@ class KnowledgeService:
             return {
                 "success": True,
                 "storage_type": "llamacloud",
-                "index_name": index_name,
+                "index_info": index_name,
                 "project_name": self.project_name,
                 "document_count": len(documents),
                 "file_names": metadata["files"]
@@ -418,7 +420,7 @@ class KnowledgeService:
                 index.storage_context.persist(persist_dir=index_path)
                 
                 # Update metadata with index information
-                metadata["index_path"] = index_path
+                metadata["index_info"] = index_path
                 metadata["has_index"] = True
                 metadata["index_document_count"] = len(documents)
                 
@@ -437,7 +439,7 @@ class KnowledgeService:
                     "success": True,
                     "storage_type": "local",
                     "local_path": local_path,
-                    "index_path": index_path,
+                    "index_info": index_path,
                     "document_count": file_count,
                     "index_document_count": len(documents),
                     "file_names": metadata.get("files", []),
@@ -483,7 +485,7 @@ class KnowledgeService:
                     "local_path": local_path,
                     "index_name": None,
                     "project_name": None,
-                    "index_path": index_path,
+                    "index_info": index_path,
                     "has_index": True,
                     "index_document_count": len(documents)
                 }
@@ -504,7 +506,7 @@ class KnowledgeService:
                     "success": True,
                     "storage_type": "local",
                     "local_path": local_path,
-                    "index_path": index_path,
+                    "index_info": index_path,
                     "document_count": file_count,
                     "index_document_count": len(documents),
                     "file_names": files,
@@ -556,7 +558,7 @@ class KnowledgeService:
                 metadata = json.load(f)
             
             # Check if index exists
-            index_path = metadata.get("index_path")
+            index_path = metadata.get("index_info")
             if not index_path or not os.path.exists(index_path):
                 return {
                     "success": False,
@@ -642,7 +644,7 @@ class KnowledgeService:
                 metadata = json.load(f)
             
             # Check if index exists
-            index_name = metadata.get("index_name")
+            index_name = metadata.get("index_info") or metadata.get("index_name")
             if not index_name:
                 return {
                     "success": False,
@@ -725,7 +727,7 @@ class KnowledgeService:
                 with open(perm_metadata_path, 'r') as f:
                     metadata = json.load(f)
                     
-                if metadata.get("index_path") and os.path.exists(metadata.get("index_path")):
+                if metadata.get("index_info") and os.path.exists(metadata.get("index_info")):
                     # Use local index
                     return await self.query_local_index(agent_name, query_text, similarity_top_k)
             

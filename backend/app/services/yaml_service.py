@@ -86,11 +86,11 @@ In normal mode, provide only the response without the analytical sections."""
             yaml_structure["knowledge_base"] = {}
             
             # Handle different storage types
-            if storage_type == "llamacloud" and knowledge_base.get("index_name"):
+            if knowledge_base.get("index_info"):
                 # LlamaCloud storage
                 yaml_structure["knowledge_base"].update({
-                    "storage_type": "llamacloud",
-                    "index_name": knowledge_base.get("index_name"),
+                    "storage_type": knowledge_base.get("storage_type"),
+                    "index_info": knowledge_base.get("index_info"),
                     "document_count": knowledge_base.get("document_count", 0),
                     "project_name": knowledge_base.get("project_name") or "__PROJECT_NAME__"
                 })
@@ -111,7 +111,7 @@ In normal mode, provide only the response without the analytical sections."""
                             try:
                                 # Initialize the index from LlamaCloud
                                 index = LlamaCloudIndex(
-                                    index_name="{yaml_structure["knowledge_base"]["index_name"]}",
+                                    index_info="{yaml_structure["knowledge_base"]["index_info"]}",
                                     project_name="{yaml_structure["knowledge_base"]["project_name"]}",
                                     api_key=api_key
                                 )

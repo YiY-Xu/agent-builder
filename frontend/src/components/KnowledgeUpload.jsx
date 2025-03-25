@@ -148,6 +148,7 @@ const KnowledgeUpload = () => {
         updateKnowledgeBase({
           storage_type: 'local',
           local_path: result.local_path,
+          index_info: result.index_info,
           document_count: result.document_count,
           file_names: result.file_names
         });
@@ -193,7 +194,7 @@ const KnowledgeUpload = () => {
         // Update agent configuration with knowledge base info
         updateKnowledgeBase({
           storage_type: 'llamacloud',
-          index_name: result.index_name,
+          index_info: result.index_info,
           project_name: result.project_name,
           document_count: result.document_count,
           file_names: result.file_names

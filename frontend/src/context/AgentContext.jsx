@@ -17,8 +17,8 @@ export const AgentProvider = ({ children }) => {
     tools: [],
     mcp_servers: [],  // Add MCP servers to agent config
     knowledge_base: {
-      storage_type: 'llamacloud',  // Default to LlamaCloud storage
-      index_name: null,
+      storage_type: null,  // Default to LlamaCloud storage
+      index_info: null,
       project_name: null,
       local_path: null,
       document_count: 0,
@@ -130,7 +130,7 @@ export const AgentProvider = ({ children }) => {
       ...prev,
       knowledge_base: {
         ...prev.knowledge_base,
-        index_name: knowledgeInfo.index_name,
+        index_info: knowledgeInfo.index_info,
         document_count: knowledgeInfo.document_count,
         project_name: knowledgeInfo.project_name,
         file_names: knowledgeInfo.file_names || []
@@ -151,7 +151,7 @@ export const AgentProvider = ({ children }) => {
       mcp_servers: [],
       knowledge_base: {
         storage_type: 'llamacloud',
-        index_name: null,
+        index_info: null,
         project_name: null,
         local_path: null,
         document_count: 0,

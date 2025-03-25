@@ -136,8 +136,7 @@ Remember to act consistently with your configuration and purpose.
         
         # Check if knowledge retrieval is needed
         has_knowledge_base = "knowledge_base" in complete_config and (
-            complete_config["knowledge_base"].get("index_name") or 
-            complete_config["knowledge_base"].get("local_path")
+            complete_config["knowledge_base"].get("index_info")
         )
         
         might_need_knowledge = has_knowledge_base and any(

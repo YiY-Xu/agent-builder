@@ -205,9 +205,9 @@ class TestKnowledgeService:
         # Step 4: Check result
         assert result["success"] is True, f"Index creation failed with error: {result.get('error', 'unknown error')}"
         assert "local_path" in result
-        assert "index_path" in result
+        assert "index_info" in result
         assert os.path.exists(result["local_path"])
-        assert os.path.exists(result["index_path"])
+        assert os.path.exists(result["index_info"])
         
         # Step 5: Debug - Inspect the permanent directory structure after index creation
         perm_agent_dir = result["local_path"]
@@ -216,7 +216,7 @@ class TestKnowledgeService:
             logger.info(f"Files in permanent agent directory: {perm_files}")
             
             # Check index directory
-            index_path = result["index_path"]
+            index_path = result["index_info"]
             if os.path.exists(index_path):
                 index_files = os.listdir(index_path)
                 logger.info(f"Files in index directory: {index_files}")

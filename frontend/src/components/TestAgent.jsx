@@ -149,13 +149,10 @@ const TestAgent = () => {
           
           // Check if knowledge base exists
           const hasKnowledge = parsedConfig.knowledge_base && 
-                             (parsedConfig.knowledge_base.index_name || 
-                              parsedConfig.knowledge_base.local_path);
+                             (parsedConfig.knowledge_base.index_info);
                               
           const knowledgeType = hasKnowledge ? 
-                              (parsedConfig.knowledge_base.storage_type || 
-                               (parsedConfig.knowledge_base.index_name ? 'llamacloud' : 'local')) : 
-                              null;
+                              parsedConfig.knowledge_base.storage_type : null;
           
           setAgentConfig(parsedConfig);
           setHasKnowledgeBase(hasKnowledge);
@@ -503,15 +500,15 @@ const TestAgent = () => {
                 </span>
               </div>
               
-              {knowledgeBaseType === 'llamacloud' && agentConfig.knowledge_base.index_name && (
+              {knowledgeBaseType === 'llamacloud' && (
                 <div className="knowledge-detail">
-                  <strong>Index:</strong> {agentConfig.knowledge_base.index_name}
+                  <strong>Index:</strong> {agentConfig.knowledge_base.index_info}
                 </div>
               )}
               
-              {knowledgeBaseType === 'local' && agentConfig.knowledge_base.local_path && (
+              {knowledgeBaseType === 'local' && (
                 <div className="knowledge-detail">
-                  <strong>Path:</strong> {agentConfig.knowledge_base.local_path}
+                  <strong>Path:</strong> {agentConfig.knowledge_base.index_info}
                 </div>
               )}
               

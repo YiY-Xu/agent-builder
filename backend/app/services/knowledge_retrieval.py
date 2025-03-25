@@ -41,11 +41,11 @@ class KnowledgeRetrievalService:
                 return None
                 
             kb = agent_config["knowledge_base"]
-            storage_type = kb.get("storage_type", "llamacloud" if kb.get("index_name") else "local")
+            storage_type = kb.get("storage_type", "llamacloud" if kb.get("index_info") else "local")
             
             logger.info(f"Querying {storage_type} knowledge base with query: {query}")
             
-            if storage_type == "llamacloud" and kb.get("index_name"):
+            if storage_type == "llamacloud" and kb.get("index_info"):
                 # LlamaCloud retrieval
                 return await self._query_llamacloud(query, kb)
             elif storage_type == "local" and kb.get("local_path"):
@@ -71,7 +71,7 @@ class KnowledgeRetrievalService:
             Retrieved context or None if retrieval fails
         """
         try:
-            index_name = kb.get("index_name")
+            index_name = kb.get("index_info")
             project_name = kb.get("project_name", settings.LLAMA_CLOUD_PROJECT_NAME)
             
             if not index_name:

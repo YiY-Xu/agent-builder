@@ -28,7 +28,7 @@ export const sendMessage = async (messages, agentConfig) => {
       tools: agentConfig.tools || [],
       knowledge_base: agentConfig.knowledge_base || {
         storage_type: 'llamacloud',
-        index_name: null,
+        index_info: null,
         project_name: null,
         local_path: null,
         document_count: 0,
