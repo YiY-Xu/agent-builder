@@ -58,8 +58,20 @@ export const sendMessage = async (messages, agentConfig) => {
       
       try {
         const errorData = JSON.parse(errorText);
+        // Check for specific error messages
+        if (errorData.detail?.includes('overloaded') || errorData.detail?.includes('rate limit')) {
+          throw new Error('The service is currently experiencing high demand. Please wait a moment and try again.');
+        }
         throw new Error(errorData.detail || 'Error communicating with the server');
       } catch (jsonError) {
+        // Handle specific HTTP status codes
+        if (response.status === 503) {
+          throw new Error('The service is temporarily unavailable. Please try again in a few moments.');
+        } else if (response.status === 429) {
+          throw new Error('Too many requests. Please wait a moment before trying again.');
+        } else if (response.status === 500) {
+          throw new Error('The service is experiencing technical difficulties. Please try again later.');
+        }
         throw new Error(`Server error: ${response.status} ${response.statusText}`);
       }
     }

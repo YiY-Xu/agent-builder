@@ -43,6 +43,9 @@ KNOWLEDGE SOURCES:
 TOOL SELECTION:
 [Explain which tools you're using (if any) and why they are appropriate for this query]
 
+MCP SERVERS SELECTION:
+[Explain which MCP servers you're using (if any) and why they are appropriate for this query]
+
 RESPONSE:
 [Your actual response to the user]
 ```
@@ -77,11 +80,13 @@ In normal mode, provide only the response without the analytical sections."""
                     "endpoint": tool.get("endpoint")
                 })
         
+        # Add MCP servers if any
+        if "mcp_servers" in agent_config and agent_config["mcp_servers"]:
+            yaml_structure["mcp_servers"] = agent_config["mcp_servers"]
+        
         # Add knowledge base if available
         if "knowledge_base" in agent_config and agent_config["knowledge_base"]:
-            knowledge_base = agent_config["knowledge_base"]
-            storage_type = knowledge_base.get("storage_type", "llamacloud")
-            
+            knowledge_base = agent_config["knowledge_base"]            
             # Create knowledge base section in YAML
             yaml_structure["knowledge_base"] = {}
             
