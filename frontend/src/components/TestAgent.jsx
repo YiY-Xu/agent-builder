@@ -82,12 +82,29 @@ const TestAgent = () => {
     
     // Helper function to filter out unwanted log messages
     const filterLogs = (logs) => {
-      return logs.filter(log => 
-        !log.includes("Returning 300 log lines") && 
-        !log.includes("Request to /api/logs/stream completed") &&
-        !log.includes("Request to /api/logs/stream") &&
-        !log.includes("Returning 300 log")
-      );
+      return logs.filter(log => {
+        // Filter out known system messages
+        if (log.includes("Returning 300 log lines") || 
+            log.includes("Request to /api/logs/stream completed") ||
+            log.includes("Request to /api/logs/stream") ||
+            log.includes("Returning 300 log")) {
+          return false;
+        }
+        
+        // Filter out empty logs
+        if (!log || log.trim() === '' || log.length < 10) {
+          return false;
+        }
+        
+        // Filter out logs with empty messages - matching the pattern with INFO, etc.
+        const match = log.match(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d{3}\s+-\s+\S+\s+-\s+\S+\s+-\s+(.*)/);
+        if (match && (!match[1] || match[1].trim() === '')) {
+          return false;
+        }
+        
+        // Keep this log entry
+        return true;
+      });
     };
     
     const setupSSE = async () => {
@@ -566,7 +583,9 @@ const TestAgent = () => {
     const formatLogLine = (log) => {
       // Skip certain types of logs that aren't useful to display
       if (log.includes("Returning 300 log lines") || 
-          log.includes("Request to /api/logs/stream completed")) {
+          log.includes("Request to /api/logs/stream completed") ||
+          log.includes("Request to /api/logs/stream") ||
+          log.includes("Returning 300 log")) {
         return null;
       }
       
@@ -578,6 +597,11 @@ const TestAgent = () => {
         const service = match[2]; // Service name (e.g., app.services.claude_service)
         const level = match[3]; // Log level (e.g., INFO)
         const message = match[4]; // The actual message
+        
+        // Skip logs with empty messages
+        if (!message || message.trim() === '') {
+          return null;
+        }
         
         // Check if this is a relevance score log
         const isRelevanceScoreLog = 
@@ -598,6 +622,11 @@ const TestAgent = () => {
         // Get everything after the timestamp
         const rest = log.replace(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d{3}\s+-\s+/, '');
         
+        // Skip logs with empty content after the timestamp
+        if (!rest || rest.trim() === '') {
+          return null;
+        }
+        
         // Check if this is a relevance score log
         const isRelevanceScoreLog = 
           rest.includes("Document ") && 
@@ -610,7 +639,12 @@ const TestAgent = () => {
         );
       }
       
-      // If no regex matches, return the original log
+      // If the log doesn't match our expected format or is malformed, ignore it
+      if (log.trim() === '' || log.length < 10) {
+        return null;
+      }
+      
+      // If no regex matches but log is valid, return the original log
       return log;
     };
 
@@ -680,13 +714,30 @@ const TestAgent = () => {
     try {
       const response = await fetchLogs();
       if (response && response.logs) {
-        // Filter logs to remove system messages - use same filter as the SSE function
-        const filteredLogs = response.logs.filter(log => 
-          !log.includes("Returning 300 log lines") && 
-          !log.includes("Request to /api/logs/stream completed") &&
-          !log.includes("Request to /api/logs/stream") &&
-          !log.includes("Returning 300 log")
-        );
+        // Filter logs using the same comprehensive filtering as in setupSSE
+        const filteredLogs = response.logs.filter(log => {
+          // Filter out known system messages
+          if (log.includes("Returning 300 log lines") || 
+              log.includes("Request to /api/logs/stream completed") ||
+              log.includes("Request to /api/logs/stream") ||
+              log.includes("Returning 300 log")) {
+            return false;
+          }
+          
+          // Filter out empty logs
+          if (!log || log.trim() === '' || log.length < 10) {
+            return false;
+          }
+          
+          // Filter out logs with empty messages - matching the pattern with INFO, etc.
+          const match = log.match(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d{3}\s+-\s+\S+\s+-\s+\S+\s+-\s+(.*)/);
+          if (match && (!match[1] || match[1].trim() === '')) {
+            return false;
+          }
+          
+          // Keep this log entry
+          return true;
+        });
         
         setLogs(filteredLogs);
         setInitialLogsLoaded(true);
