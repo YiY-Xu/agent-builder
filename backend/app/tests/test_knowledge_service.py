@@ -7,8 +7,9 @@ import shutil
 import logging
 import pytest
 import pytest_asyncio
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, patch
 from fastapi import UploadFile
+import tempfile
 
 
 # Set up detailed logging for debugging
@@ -16,7 +17,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Import the service
-from app.services.knowledge_service import KnowledgeService
+from app.services.knowledge_service import KnowledgeService, sanitize_agent_name
 
 # Constants for testing
 TEST_AGENT_NAME = "test2"
@@ -30,21 +31,30 @@ class TestKnowledgeService:
 
     @pytest.fixture
     def service(self):
-        """Create a KnowledgeService instance using its predefined directories"""
+        """Create a KnowledgeService instance with temporary directories."""
+        # Create temporary directories
+        temp_upload_dir = tempfile.mkdtemp()
+        permanent_storage_dir = tempfile.mkdtemp()
+        
+        # Create service instance
         service = KnowledgeService()
         
-        # Log the directories used by the service
-        logger.info(f"Using service with temp_dir: {service.temp_upload_dir}")
-        logger.info(f"Using service with perm_dir: {service.permanent_storage_dir}")
+        # Override paths
+        service.temp_upload_dir = temp_upload_dir
+        service.permanent_storage_dir = permanent_storage_dir
         
         # Clean up test agent data if it exists from a previous test
         self.cleanup_test_agent(service, TEST_AGENT_NAME)
         
-        return service
+        yield service
+        
+        # Clean up temporary directories
+        shutil.rmtree(temp_upload_dir, ignore_errors=True)
+        shutil.rmtree(permanent_storage_dir, ignore_errors=True)
     
     def cleanup_test_agent(self, service, agent_name):
         """Clean up index data but keep folder structure"""
-        sanitized_name = service._sanitize_name(agent_name)
+        sanitized_name = sanitize_agent_name(agent_name)
         
         # Clean up metadata in temp directory
         temp_agent_dir = os.path.join(service.temp_upload_dir, sanitized_name)
@@ -175,7 +185,7 @@ class TestKnowledgeService:
             assert result["success"] is True
         
         # Step 2: Debug - Inspect the temp directory structure
-        agent_dir = os.path.join(service.temp_upload_dir, service._sanitize_name(TEST_AGENT_NAME))
+        agent_dir = os.path.join(service.temp_upload_dir, sanitize_agent_name(TEST_AGENT_NAME))
         logger.info(f"Agent directory path: {agent_dir}")
         
         if os.path.exists(agent_dir):
@@ -339,3 +349,51 @@ class TestKnowledgeService:
             result["raw_response_object"] = str(result["raw_response_object"])
             
         return json.dumps(result, indent=2)
+
+def test_sanitize_name():
+    """Test the name sanitization function."""
+    test_cases = [
+        ("Test Agent", "test-agent"),
+        ("Test Agent!!!", "test-agent"),
+        ("Test@Agent", "testagent"),
+        ("   Test   Agent   ", "test-agent"),
+        ("VeryLongAgentNameThatShouldBeTruncated", "verylongagentnameth"),
+        ("-Test-Agent-", "test-agent"),
+        ("", "agent"),
+        ("12345", "12345")
+    ]
+    
+    for input_name, expected in test_cases:
+        sanitized_name = sanitize_agent_name(input_name)
+        assert sanitized_name == expected, f"Expected {expected} for {input_name}, got {sanitized_name}"
+
+async def test_upload_file(service, monkeypatch):
+    """Test uploading a file."""
+    # Mock UploadFile
+    mock_file = MagicMock()
+    mock_file.filename = TEST_FILE_NAME
+    mock_file.read.return_value = b"test content"
+    
+    # Create agent directory
+    agent_dir = os.path.join(service.temp_upload_dir, sanitize_agent_name(TEST_AGENT_NAME))
+    os.makedirs(agent_dir, exist_ok=True)
+    
+    # Test uploading a file
+    result = await service.upload_file(mock_file, TEST_AGENT_NAME)
+    
+    # Assertions
+    assert result["success"] is True
+    assert result["file_name"] == TEST_FILE_NAME
+    assert result["agent_name"] == TEST_AGENT_NAME
+    
+    # Check if file exists
+    file_path = os.path.join(agent_dir, TEST_FILE_NAME)
+    assert os.path.exists(file_path)
+    
+    # Check if metadata was updated
+    metadata_path = os.path.join(agent_dir, "metadata.json")
+    assert os.path.exists(metadata_path)
+    
+    with open(metadata_path, 'r') as f:
+        metadata = json.load(f)
+        assert TEST_FILE_NAME in metadata["files"]

@@ -45,8 +45,9 @@ class IndexCreationResponse(BaseModel):
 
 class LocalStorageResponse(BaseModel):
     success: bool
-    storage_type: str = "local"
+    storage_type: str = None
     local_path: Optional[str] = None
+    index_info: Optional[str] = None
     document_count: Optional[int] = None
     file_names: Optional[List[str]] = None
     message: Optional[str] = None
@@ -172,6 +173,8 @@ async def save_to_local(
         logger.info(f"Saving to local storage for agent: {agent_name}")
         
         result = await knowledge_service.create_local_index(agent_name)
+
+        print(f"Result: {result}")
         
         if not result.get("success", False):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to save to local storage"))

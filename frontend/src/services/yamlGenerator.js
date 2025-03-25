@@ -2,6 +2,7 @@
  * Utility functions for YAML generation and handling
  */
 import yaml from 'js-yaml';
+import { sanitizeAgentName } from '../utils/helpers';
 
 /**
  * Generate a YAML string from the agent configuration object
@@ -38,12 +39,23 @@ export const generateYaml = (agentConfig) => {
 
     // Add knowledge base if available
     if (agentConfig.knowledge_base) {
-        config.knowledge_base = {
-            storage_type: agentConfig.knowledge_base.storage_type,
-            index_info: agentConfig.knowledge_base.index_info,
-            document_count: agentConfig.knowledge_base.document_count || 0,
-            project_name: agentConfig.knowledge_base.project_name || '__PROJECT_NAME__'
-        };
+        // Use the sanitized name from the knowledge base if available, otherwise compute it
+        const sanitizedName = agentConfig.knowledge_base.sanitized_name || 
+                            sanitizeAgentName(agentConfig.name);
+        
+        // Don't create fallback index_info - only use what's in the config
+        const indexInfo = agentConfig.knowledge_base.index_info;
+                            
+        // Only include knowledge base in YAML if we have valid index_info
+        if (indexInfo) {
+            config.knowledge_base = {
+                storage_type: agentConfig.knowledge_base.storage_type,
+                index_info: indexInfo,
+                document_count: agentConfig.knowledge_base.document_count || 0,
+                project_name: agentConfig.knowledge_base.project_name || '__PROJECT_NAME__',
+                sanitized_name: sanitizedName
+            };
+        }
     }
 
     // Convert to YAML with proper formatting

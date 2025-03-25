@@ -21,7 +21,8 @@ const ConfigPanel = () => {
     selectedServers,
     setSelectedServers,
     showMcpServerSelection,
-    setShowMcpServerSelection
+    setShowMcpServerSelection,
+    updateMcpServers
   } = useAgent();
   const { showYamlButton, yamlContent } = useChat();
   const [previousConfig, setPreviousConfig] = useState({});
@@ -180,6 +181,7 @@ const ConfigPanel = () => {
           selectedServers={selectedServers}
           onSelectServers={(servers) => {
             setSelectedServers(servers);
+            updateMcpServers(servers);
             setShowMcpServerSelection(false);
           }}
           onCancel={() => setShowMcpServerSelection(false)}

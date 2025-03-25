@@ -6,6 +6,7 @@ import json
 from typing import List, Dict, Any, Optional
 import uuid
 from fastapi import UploadFile
+import traceback
 
 # Import Llama Index components
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, StorageContext, load_index_from_storage
@@ -17,6 +18,34 @@ from llama_index.core.node_parser import SentenceSplitter
 from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
+
+def sanitize_agent_name(name: str) -> str:
+    """
+    Sanitize agent name for use in index name and directory names.
+    Public utility function that can be imported by other modules.
+    
+    Args:
+        name: Original agent name
+        
+    Returns:
+        Sanitized name suitable for index and filesystem
+    """
+    # Replace spaces with hyphens and remove special characters
+    sanitized = name.lower().replace(" ", "-")
+    sanitized = ''.join(c for c in sanitized if c.isalnum() or c == '-')
+    
+    # Limit length
+    if len(sanitized) > 20:
+        sanitized = sanitized[:20]
+        
+    # Ensure it doesn't start or end with hyphen
+    sanitized = sanitized.strip('-')
+    
+    # If empty after sanitization, use default
+    if not sanitized:
+        sanitized = "agent"
+        
+    return sanitized
 
 class KnowledgeService:
     """Service for handling document uploads, knowledge indexing, and retrieval."""
@@ -47,7 +76,7 @@ class KnowledgeService:
         """
         try:
             # Create agent directory if it doesn't exist
-            agent_dir = os.path.join(self.temp_upload_dir, self._sanitize_name(agent_name))
+            agent_dir = os.path.join(self.temp_upload_dir, sanitize_agent_name(agent_name))
             os.makedirs(agent_dir, exist_ok=True)
             
             # Get the file content
@@ -95,7 +124,7 @@ class KnowledgeService:
             agent_name: Name of the agent
             file_name: Name of the uploaded file
         """
-        sanitized_name = self._sanitize_name(agent_name)
+        sanitized_name = sanitize_agent_name(agent_name)
         metadata_path = os.path.join(self.temp_upload_dir, sanitized_name, "metadata.json")
         
         # Initialize metadata
@@ -131,7 +160,7 @@ class KnowledgeService:
             Dictionary with list of files and index status
         """
         try:
-            sanitized_name = self._sanitize_name(agent_name)
+            sanitized_name = sanitize_agent_name(agent_name)
             agent_dir = os.path.join(self.temp_upload_dir, sanitized_name)
             
             if not os.path.exists(agent_dir):
@@ -193,7 +222,7 @@ class KnowledgeService:
             Dictionary with result information
         """
         try:
-            sanitized_name = self._sanitize_name(agent_name)
+            sanitized_name = sanitize_agent_name(agent_name)
             agent_dir = os.path.join(self.temp_upload_dir, sanitized_name)
             file_path = os.path.join(agent_dir, file_name)
             
@@ -249,7 +278,7 @@ class KnowledgeService:
             Dictionary with index information
         """
         try:
-            sanitized_name = self._sanitize_name(agent_name)
+            sanitized_name = sanitize_agent_name(agent_name)
             agent_dir = os.path.join(self.temp_upload_dir, sanitized_name)
             
             if not os.path.exists(agent_dir):
@@ -360,7 +389,7 @@ class KnowledgeService:
             Dictionary with local storage and index information
         """
         try:
-            sanitized_name = self._sanitize_name(agent_name)
+            sanitized_name = sanitize_agent_name(agent_name)
             temp_agent_dir = os.path.join(self.temp_upload_dir, sanitized_name)
             
             if not os.path.exists(temp_agent_dir):
@@ -427,6 +456,7 @@ class KnowledgeService:
                 with open(metadata_path, 'w') as f:
                     json.dump(metadata, f, indent=2)
                 
+                # Save metadata to permanent storage
                 perm_metadata_path = os.path.join(local_path, "metadata.json")
                 with open(perm_metadata_path, 'w') as f:
                     json.dump(metadata, f, indent=2)
@@ -493,6 +523,7 @@ class KnowledgeService:
                 with open(temp_metadata_path, 'w') as f:
                     json.dump(metadata, f, indent=2)
                 
+                # Save metadata to permanent storage
                 perm_metadata_path = os.path.join(local_path, "metadata.json")
                 with open(perm_metadata_path, 'w') as f:
                     json.dump(metadata, f, indent=2)
@@ -511,6 +542,7 @@ class KnowledgeService:
                     "has_index": True
                 }
         except Exception as e:
+            traceback.print_exc()
             logger.error(f"Error creating local index: {str(e)}", exc_info=True)
             return {
                 "success": False,
@@ -589,7 +621,7 @@ class KnowledgeService:
             Dictionary with query results including relevant text snippets
         """
         try:
-            sanitized_name = self._sanitize_name(agent_name)
+            sanitized_name = sanitize_agent_name(agent_name)
             temp_agent_dir = os.path.join(self.temp_upload_dir, sanitized_name)
             
             if not os.path.exists(temp_agent_dir):
@@ -683,7 +715,7 @@ class KnowledgeService:
             Dictionary with query results
         """
         try:
-            sanitized_name = self._sanitize_name(agent_name)
+            sanitized_name = sanitize_agent_name(agent_name)
             
             # First check permanent storage for metadata
             perm_agent_dir = os.path.join(self.permanent_storage_dir, sanitized_name)
@@ -796,34 +828,6 @@ class KnowledgeService:
             logger.error(f"Error querying knowledge base: {str(e)}", exc_info=True)
             return f"Error querying knowledge base: {str(e)}"
     
-    def _sanitize_name(self, name: str) -> str:
-        """
-        Sanitize agent name for use in index name and directory names.
-        
-        Args:
-            name: Original agent name
-            
-        Returns:
-            Sanitized name suitable for index and filesystem
-        """
-        # Replace spaces with hyphens and remove special characters
-        sanitized = name.lower().replace(" ", "-")
-        sanitized = ''.join(c for c in sanitized if c.isalnum() or c == '-')
-        
-        # Limit length
-        if len(sanitized) > 20:
-            sanitized = sanitized[:20]
-            
-        # Ensure it doesn't start or end with hyphen
-        sanitized = sanitized.strip('-')
-        
-        # If empty after sanitization, use default
-        if not sanitized:
-            sanitized = "agent"
-            
-        return sanitized
-
-
     def _format_retrieved_context(self, query_result: Dict[str, Any]) -> str:
         """
         Format the retrieved context for the agent, including source information.

@@ -90,6 +90,13 @@ const useChat = () => {
       const botMessage = { role: 'assistant', content: response.message };
       setMessages(prev => [...prev, botMessage]);
       
+      // Focus on the input field after receiving a response
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 100);
+      
       // Apply any configuration updates
       if (response.config_updates) {
         console.log("Applying config updates:", response.config_updates);

@@ -20,7 +20,7 @@ class AgentConfig(BaseModel):
     description: Optional[str] = Field(None, description="Description of the agent's purpose")
     instruction: Optional[str] = Field(None, description="Detailed instructions for the agent")
     memory_size: int = Field(10, description="Number of messages to remember in conversation history")
-    mode: str = Field("normal", description="Agent operating mode (normal or debug)")
+    mode: str = Field("debug", description="Agent operating mode (normal or debug)")
     tools: List[AgentTool] = Field(default_factory=list, description="List of tools/APIs the agent can use")
     
     class Config:

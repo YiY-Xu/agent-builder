@@ -139,9 +139,13 @@ export const uploadFile = async (formData) => {
  */
 export const getFiles = async (agentName) => {
   try {
-    console.log(`Getting files for agent: ${agentName}`);
+    // Import sanitizeAgentName and use it on the agent name
+    const { sanitizeAgentName } = await import('../utils/helpers');
+    const sanitizedName = sanitizeAgentName(agentName);
     
-    const response = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(agentName)}`, {
+    console.log(`Getting files for agent: ${agentName} (sanitized: ${sanitizedName})`);
+    
+    const response = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(sanitizedName)}`, {
       method: 'GET',
     });
 
@@ -167,13 +171,18 @@ export const getFiles = async (agentName) => {
 /**
  * Create index from uploaded files
  * @param {string} agentName - Name of the agent
+ * @param {string} type - Type of index to create (local or llamacloud)
  * @returns {Promise} - Promise that resolves to the API response
  */
 export const createIndex = async (agentName, type) => {
   try {
-    console.log(`Creating index for agent: ${agentName}`);
+    // Import sanitizeAgentName and use it on the agent name
+    const { sanitizeAgentName } = await import('../utils/helpers');
+    const sanitizedName = sanitizeAgentName(agentName);
     
-    const response = await fetch(`${API_BASE_URL}/api/create-${type}-index/${encodeURIComponent(agentName)}`, {
+    console.log(`Creating index for agent: ${agentName} (sanitized: ${sanitizedName})`);
+    
+    const response = await fetch(`${API_BASE_URL}/api/create-${type}-index/${encodeURIComponent(sanitizedName)}`, {
       method: 'POST',
     });
 
@@ -189,41 +198,21 @@ export const createIndex = async (agentName, type) => {
       }
     }
 
-    return await response.json();
+    // Get the response and ensure it has index_info
+    const result = await response.json();
+
+    console.log(`Index creation result for ${agentName} (type: ${type}):`, result);
+    
+    // If index_info is missing but we have success, report an error
+    if (result.success && !result.index_info) {
+      console.error(`Backend did not return index_info for ${agentName} when creating ${type} index. Response:`, result);
+      result.error = 'Backend failed to provide valid index information';
+      result.success = false;
+    }
+    
+    return result;
   } catch (error) {
     console.error('Error creating index:', error);
-    throw error;
-  }
-};
-
-/**
- * Save uploaded files to local storage
- * @param {string} agentName - Name of the agent
- * @returns {Promise} - Promise that resolves to the API response
- */
-export const saveToLocal = async (agentName) => {
-  try {
-    console.log(`Saving to local storage for agent: ${agentName}`);
-    
-    const response = await fetch(`${API_BASE_URL}/api/save-local/${encodeURIComponent(agentName)}`, {
-      method: 'POST',
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('API Error Response:', errorText);
-      
-      try {
-        const errorData = JSON.parse(errorText);
-        throw new Error(errorData.detail || 'Error saving to local storage');
-      } catch (jsonError) {
-        throw new Error(`Server error: ${response.status} ${response.statusText}`);
-      }
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error saving to local storage:', error);
     throw error;
   }
 };
@@ -236,9 +225,13 @@ export const saveToLocal = async (agentName) => {
  */
 export const removeFile = async (agentName, fileName) => {
   try {
-    console.log(`Removing file ${fileName} for agent: ${agentName}`);
+    // Import sanitizeAgentName and use it on the agent name
+    const { sanitizeAgentName } = await import('../utils/helpers');
+    const sanitizedName = sanitizeAgentName(agentName);
     
-    const response = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(agentName)}/${encodeURIComponent(fileName)}`, {
+    console.log(`Removing file ${fileName} for agent: ${agentName} (sanitized: ${sanitizedName})`);
+    
+    const response = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(sanitizedName)}/${encodeURIComponent(fileName)}`, {
       method: 'DELETE',
     });
 
@@ -278,7 +271,9 @@ export const testAgentChat = async ({ message, agent_config, history }) => {
     }));
 
     console.log('Testing agent with message:', message);
-    console.log('Agent config:', agent_config);
+    console.log('Agent config full object:', agent_config);
+    console.log('MCP servers in agent config:', agent_config.mcp_servers);
+    console.log('Agent config JSON:', JSON.stringify(agent_config, null, 2));
 
     const response = await fetch(`${API_BASE_URL}/api/test-agent`, {
       method: 'POST',
@@ -318,6 +313,9 @@ export const testAgentChat = async ({ message, agent_config, history }) => {
  */
 export const generateYaml = async (agentConfig) => {
   try {
+    console.log('Generating YAML for agent config:', JSON.stringify(agentConfig, null, 2));
+    console.log('MCP servers in config:', agentConfig.mcp_servers);
+    
     const response = await fetch(`${API_BASE_URL}/api/yaml`, {
       method: 'POST',
       headers: {

@@ -6,6 +6,7 @@ import LoadingIndicator from './LoadingIndicator';
 import { testAgentChat, generateYaml, fetchLogs, connectToLogsSSE, toggleMode } from '../services/api';
 import yaml from 'js-yaml';
 import '../styles/components.css';
+import { sanitizeAgentName } from '../utils/helpers';
 
 /**
  * Component for testing an agent by loading a YAML configuration
@@ -202,6 +203,11 @@ const TestAgent = () => {
           const knowledgeType = hasKnowledge ? 
                               parsedConfig.knowledge_base.storage_type : null;
           
+          // Add sanitized name to knowledge base if it doesn't exist
+          if (hasKnowledge && !parsedConfig.knowledge_base.sanitized_name) {
+            parsedConfig.knowledge_base.sanitized_name = sanitizeAgentName(parsedConfig.name);
+          }
+          
           setAgentConfig(parsedConfig);
           setHasKnowledgeBase(hasKnowledge);
           setKnowledgeBaseType(knowledgeType);
@@ -262,6 +268,13 @@ const TestAgent = () => {
         role: 'assistant', 
         content: response.message 
       }]);
+      
+      // Focus on the input field after receiving a response
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 100);
     } catch (err) {
       console.error('Error in chat:', err);
       setError(`Error communicating with the agent: ${err.message}`);

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
+import { sanitizeAgentName } from '../utils/helpers';
 
 // Create context
 const AgentContext = createContext();
@@ -14,6 +15,7 @@ export const AgentProvider = ({ children }) => {
     description: '',
     instruction: '',
     memory_size: 10,
+    mode: 'debug', // Set default mode to debug
     tools: [],
     mcp_servers: [],  // Add MCP servers to agent config
     knowledge_base: {
@@ -51,10 +53,24 @@ export const AgentProvider = ({ children }) => {
    * @param {Any} value - The new value for the field
    */
   const updateAgentConfig = (field, value) => {
-    setAgentConfig(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    if (field === 'name' && value && agentConfig.knowledge_base) {
+      // When the name changes, update the sanitized name in the knowledge base
+      const sanitizedName = sanitizeAgentName(value);
+      
+      setAgentConfig(prev => ({
+        ...prev,
+        [field]: value,
+        knowledge_base: {
+          ...prev.knowledge_base,
+          sanitized_name: sanitizedName
+        }
+      }));
+    } else {
+      setAgentConfig(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
   };
 
   /**
@@ -127,14 +143,26 @@ export const AgentProvider = ({ children }) => {
    * @param {Object} knowledgeInfo - Information about the uploaded knowledge
    */
   const updateKnowledgeBase = (knowledgeInfo) => {
+    // Get or compute the sanitized name
+    const sanitizedName = knowledgeInfo.sanitized_name || 
+                         (agentConfig.name ? sanitizeAgentName(agentConfig.name) : null);
+    
+    // Never create fallback index_info - only use what the backend provides
+    // If no index_info is provided, something is wrong with the backend
+    if (!knowledgeInfo.index_info) {
+      console.error('Cannot update knowledge base - missing index_info from backend');
+    }
+    
     setAgentConfig(prev => ({
       ...prev,
       knowledge_base: {
         ...prev.knowledge_base,
+        storage_type: knowledgeInfo.storage_type,
         index_info: knowledgeInfo.index_info,
         document_count: knowledgeInfo.document_count,
         project_name: knowledgeInfo.project_name,
-        file_names: knowledgeInfo.file_names || []
+        file_names: knowledgeInfo.file_names || [],
+        sanitized_name: sanitizedName
       }
     }));
   };
@@ -148,6 +176,7 @@ export const AgentProvider = ({ children }) => {
       description: '',
       instruction: '',
       memory_size: 10,
+      mode: 'debug', // Set default mode to debug
       tools: [],
       mcp_servers: [],
       knowledge_base: {
@@ -156,7 +185,8 @@ export const AgentProvider = ({ children }) => {
         project_name: null,
         local_path: null,
         document_count: 0,
-        file_names: []
+        file_names: [],
+        sanitized_name: null
       }
     });
     setMessages([]);
@@ -172,11 +202,17 @@ export const AgentProvider = ({ children }) => {
    * @param {Array} servers - Array of selected server names
    */
   const updateMcpServers = (servers) => {
+    console.log('Updating MCP servers in agent config:', servers);
     setSelectedServers(servers);
-    setAgentConfig(prev => ({
-      ...prev,
-      mcp_servers: servers
-    }));
+    setAgentConfig(prev => {
+      console.log('Previous agent config:', prev);
+      const updated = {
+        ...prev,
+        mcp_servers: servers
+      };
+      console.log('Updated agent config with MCP servers:', updated);
+      return updated;
+    });
   };
 
   // Context value
@@ -206,7 +242,8 @@ export const AgentProvider = ({ children }) => {
     applyConfigUpdates,
     updateKnowledgeStorage,
     updateKnowledgeBase,
-    resetState
+    resetState,
+    updateMcpServers
   };
 
   return (

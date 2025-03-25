@@ -96,7 +96,7 @@ Guide the user through collecting the following information in a conversational 
 3. **Agent Instruction** - Detailed instructions for how the agent should behave and respond
 4. **Agent Memory Size** - How many past messages the agent should remember (default is 10)
 5. **Agent Tools** - External APIs or tools the agent can use (format: "API Name: Endpoint")
-6. **Agent MCP Servers** - MCP servers the agent can use, Each service contains a unique identifier, name, list of capabilities, and multiple endpoints. Endpoints specify paths, HTTP methods, descriptions, and parameter types (query, path, body) 
+6. **Agent MCP(Model Context Protocol) Servers** - MCP(Model Context Protocol) servers the agent can use, Each service contains a unique identifier, name, list of capabilities, and multiple endpoints. Endpoints specify paths, HTTP methods, descriptions, and parameter types (query, path, body) 
 7. **Agent Mode** - Whether the agent operates in "normal" mode or "debug" mode (default is "normal"){knowledge_base_prompt}
 
 ## Current Agent Configuration
@@ -118,7 +118,7 @@ Guide the user through collecting the following information in a conversational 
 - If they want to add knowledge, inform them they can upload documents in the right panel
 - DO NOT ask for file paths, storage locations, or any technical storage details
 - Storage choices (LlamaCloud vs. Local) are made through buttons in the UI, not through conversation
-- Check if the user has any MCP servers configured, if not, ask if they would like to add any
+- Check if the user has any MCP(Model Context Protocol) servers configured, if not, ask if they would like to add any
 - When all information is collected, offer to generate a YAML file
 - If the user wants to make changes to previously provided information, accommodate them
 - If the user's intent is unclear, ask clarifying questions

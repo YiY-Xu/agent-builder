@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.services.claude_service import ClaudeService
 from app.services.knowledge_service import KnowledgeService
-from app.services.yaml_service import generate_yaml
+from app.services.yaml_service import generate_yaml_async
 from app.models.request_models import ChatMessage
 from app.dependencies import get_claude_service, get_knowledge_service
 from app.config.settings import settings
@@ -58,7 +58,7 @@ async def test_agent(
         logger.info(f"Initial mode from request: {mode}")
         
         # Generate the complete YAML configuration
-        yaml_content = generate_yaml(request.agent_config)
+        yaml_content = await generate_yaml_async(request.agent_config)
         logger.info(f"Generated YAML configuration:\n{yaml_content}")
         
         # Parse the generated YAML back to a dict to ensure we have all instructions
@@ -238,7 +238,7 @@ class AgentConfig(BaseModel):
     config: Dict[str, Any] = Field(..., description="Agent configuration")
 
 class ToggleModeRequest(BaseModel):
-    current_mode: str = Field(default="normal", description="Current mode (normal or debug)")
+    current_mode: str = Field(default="debug", description="Current mode (normal or debug)")
 
 class ToggleModeResponse(BaseModel):
     new_mode: str = Field(..., description="New mode after toggle")

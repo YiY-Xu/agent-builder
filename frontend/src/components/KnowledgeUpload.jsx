@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, FileText, RefreshCw, PlusCircle, Trash2, Database, HardDrive, Cloud } from 'lucide-react';
 import { useAgent } from '../context/AgentContext';
 import { uploadFile, getFiles, createIndex, removeFile } from '../services/api';
+import { sanitizeAgentName } from '../utils/helpers';
 import '../styles/components.css';
 
 /**
@@ -42,6 +43,9 @@ const KnowledgeUpload = () => {
       setHasIndex(result.has_index || false);
       
       if (result.has_index) {
+        // Create a sanitized version of the agent name for index_info consistency
+        const sanitizedName = sanitizeAgentName(agentConfig.name);
+        
         // Update agent configuration with knowledge base info
         updateKnowledgeBase({
           storage_type: result.storage_type,
@@ -49,7 +53,8 @@ const KnowledgeUpload = () => {
           project_name: result.project_name,
           local_path: result.local_path,
           document_count: result.files.length,
-          file_names: result.files
+          file_names: result.files,
+          sanitized_name: sanitizedName
         });
       }
     } catch (err) {
@@ -75,10 +80,13 @@ const KnowledgeUpload = () => {
       setUploading(true);
       setError(null);
       
+      // Sanitize the agent name for consistency with backend
+      const sanitizedName = sanitizeAgentName(agentConfig.name);
+      
       // Create form data
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('agent_name', agentConfig.name);
+      formData.append('agent_name', sanitizedName); // Use sanitized name
       
       // Upload file
       const result = await uploadFile(formData);
@@ -124,7 +132,7 @@ const KnowledgeUpload = () => {
     fileInputRef.current?.click();
   };
   
-  // Handle saving to local storage
+  // Handle creating local index
   const handleCreateLocalIndex = async () => {
     if (files.length === 0) {
       setError('Please upload at least one file before saving');
@@ -135,6 +143,9 @@ const KnowledgeUpload = () => {
       setError(null);
       setSavingLocal(true);
       
+      // Create a sanitized version of the agent name
+      const sanitizedName = sanitizeAgentName(agentConfig.name);
+      
       // Set storage type to local
       updateKnowledgeStorage({
         type: 'local'
@@ -144,13 +155,25 @@ const KnowledgeUpload = () => {
       const result = await createIndex(agentConfig.name, 'local');
       
       if (result.success) {
+        console.log("Local index creation success:", result);
+        
+        // NEVER create dummy index_info, only use what the backend provides
+        if (!result.index_info) {
+          console.error("Backend did not return index_info in successful response", result);
+          setError('Backend did not return a valid index_info. Please try again or contact support.');
+          return;
+        }
+        
+        console.log(`Using backend-provided index_info: ${result.index_info}`);
+        
         // Update knowledge base info
         updateKnowledgeBase({
           storage_type: 'local',
           local_path: result.local_path,
           index_info: result.index_info,
           document_count: result.document_count,
-          file_names: result.file_names
+          file_names: result.file_names,
+          sanitized_name: sanitizedName
         });
         
         setSuccess(true);
@@ -182,6 +205,9 @@ const KnowledgeUpload = () => {
       setError(null);
       setCreatingIndex(true);
       
+      // Create a sanitized version of the agent name
+      const sanitizedName = sanitizeAgentName(agentConfig.name);
+      
       // Set storage type to LlamaCloud
       updateKnowledgeStorage({
         type: 'llamacloud'
@@ -191,13 +217,25 @@ const KnowledgeUpload = () => {
       const result = await createIndex(agentConfig.name, 'llamacloud');
       
       if (result.success) {
+        console.log("LlamaCloud index creation success:", result);
+        
+        // NEVER create dummy index_info, only use what the backend provides
+        if (!result.index_info) {
+          console.error("Backend did not return index_info in successful response", result);
+          setError('Backend did not return a valid index_info. Please try again or contact support.');
+          return;
+        }
+        
+        console.log(`Using backend-provided index_info: ${result.index_info}`);
+        
         // Update agent configuration with knowledge base info
         updateKnowledgeBase({
           storage_type: 'llamacloud',
           index_info: result.index_info,
           project_name: result.project_name,
           document_count: result.document_count,
-          file_names: result.file_names
+          file_names: result.file_names,
+          sanitized_name: sanitizedName
         });
         setSuccess(true);
         setHasIndex(true);

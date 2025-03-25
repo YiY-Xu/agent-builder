@@ -182,3 +182,17 @@ class ClaudeService:
         except Exception as e:
             logger.error(f"Unexpected error: {e}", exc_info=True)
             raise Exception(f"Unexpected error communicating with Claude API: {str(e)}")
+    
+    async def process_message(self, messages: List[ChatMessage], agent_config: Dict[str, Any]) -> str:
+        """
+        Process a message with Claude API and get a response.
+        This is an alias for send_message to maintain compatibility.
+        
+        Args:
+            messages: List of previous messages in the conversation
+            agent_config: Current agent configuration
+            
+        Returns:
+            Claude's response text
+        """
+        return await self.send_message(messages, agent_config)

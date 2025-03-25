@@ -2,13 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 import logging
+import json
+import os
 
 from app.services.claude_service import ClaudeService
+from app.dependencies import get_claude_service
 from app.models.request_models import ChatRequest
 from app.models.response_models import ChatResponse
 from app.utils.config_extractor import extract_config_updates, should_generate_yaml, clean_response
-from app.services.yaml_service import generate_yaml as yaml_generator
-from app.dependencies import get_claude_service
+from app.services.yaml_service import generate_yaml_async as yaml_generator
+from app.services.knowledge_service import sanitize_agent_name
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +39,18 @@ async def chat(
         logger.info(f"Received request with {len(request.messages)} messages")
         logger.info(f"Agent config: {request.agent_config}")
         
+        # Extract latest user message for processing
+        user_message = next((msg for msg in reversed(request.messages) if msg.role == "user"), None)
+        
+        if not user_message:
+            raise HTTPException(status_code=400, detail="No user message found in the conversation history")
+
+        # Get conversation history
+        messages = request.messages[-request.agent_config.memory_size:]
+        
         # Call Claude API
-        claude_response = await claude_service.send_message(
-            messages=request.messages,
+        claude_response = await claude_service.process_message(
+            messages=messages,
             agent_config=request.agent_config
         )
         
@@ -72,7 +84,8 @@ async def generate_yaml(request: Dict[str, Any]):
     - Returns formatted YAML as a string
     """
     try:
-        yaml_content = yaml_generator(request)
+        # Use the async version of the YAML generator
+        yaml_content = await yaml_generator(request)
         return {"yaml": yaml_content}
     
     except Exception as e:
