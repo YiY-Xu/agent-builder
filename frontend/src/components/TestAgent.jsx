@@ -577,24 +577,26 @@ const TestAgent = () => {
     };
 
     return (
-      <div className="logs-container" ref={logsContainerRef}>
-        <div className="logs-info">
-          Showing the latest 300 lines of system logs
-        </div>
-        {isLoadingLogs ? (
-          <div className="loading-logs">
-            <LoadingIndicator />
-            <span>Loading logs...</span>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: '1' }}>
+        <div className="logs-container" ref={logsContainerRef}>
+          <div className="logs-info">
+            Showing the latest 300 lines of system logs
           </div>
-        ) : logs.length > 0 ? (
-          logs.map((log, index) => (
-            <div key={index} className="log-line">
-              {formatLogLine(log)}
+          {isLoadingLogs ? (
+            <div className="loading-logs">
+              <LoadingIndicator />
+              <span>Loading logs...</span>
             </div>
-          ))
-        ) : (
-          <div className="no-logs">No logs available</div>
-        )}
+          ) : logs.length > 0 ? (
+            logs.map((log, index) => (
+              <div key={index} className="log-line">
+                {formatLogLine(log)}
+              </div>
+            ))
+          ) : (
+            <div className="no-logs">No logs available</div>
+          )}
+        </div>
       </div>
     );
   };
