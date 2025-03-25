@@ -18,7 +18,8 @@ const ChatPanel = () => {
     handleKeyPress,
     isLoading,
     error,
-    messagesEndRef
+    messagesEndRef,
+    inputRef
   } = useChat();
 
   return (
@@ -56,6 +57,7 @@ const ChatPanel = () => {
           onKeyDown={handleKeyPress}
           disabled={isLoading}
           rows={1}
+          ref={inputRef}
         />
         
         <button 

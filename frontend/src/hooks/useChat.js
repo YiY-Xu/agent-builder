@@ -19,7 +19,8 @@ const useChat = () => {
     setYamlContent,
     setShowKnowledgeUpload,
     applyConfigUpdates,
-    updateKnowledgeStorage
+    updateKnowledgeStorage,
+    setShowMcpServerSelection
   } = useAgent();
 
   const [inputMessage, setInputMessage] = useState('');
@@ -27,6 +28,8 @@ const useChat = () => {
   
   // Reference for auto-scrolling
   const messagesEndRef = useRef(null);
+  // Reference for the input field
+  const inputRef = useRef(null);
 
   // Auto-scroll when messages change
   useEffect(() => {
@@ -65,6 +68,13 @@ const useChat = () => {
       setIsLoading(true);
       setError(null);
       
+      // Focus back on the input field
+      if (inputRef.current) {
+        setTimeout(() => {
+          inputRef.current.focus();
+        }, 0);
+      }
+      
       console.log("Sending messages to backend:", updatedMessages);
       console.log("Current agent config:", agentConfig);
       
@@ -91,6 +101,13 @@ const useChat = () => {
       if (promptKnowledgeUpload) {
         console.log("Should prompt for knowledge upload");
         setShowKnowledgeUpload(true);
+      }
+      
+      // Check if MCP server configuration should be prompted
+      const promptMcpServer = /\[PROMPT_MCP_SERVER\].*?true.*?\[\/PROMPT_MCP_SERVER\]/s.test(response.message);
+      if (promptMcpServer) {
+        console.log("Should prompt for MCP server configuration");
+        setShowMcpServerSelection(true);
       }
       
       // Check for knowledge storage preference
@@ -154,7 +171,8 @@ const useChat = () => {
     error,
     messagesEndRef,
     showYamlButton,
-    yamlContent
+    yamlContent,
+    inputRef
   };
 };
 

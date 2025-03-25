@@ -43,6 +43,7 @@ export const AgentProvider = ({ children }) => {
   // Add MCP server state
   const [mcpServers, setMcpServers] = useState([]);
   const [selectedServers, setSelectedServers] = useState([]);
+  const [showMcpServerSelection, setShowMcpServerSelection] = useState(false);
 
   /**
    * Update a single field in the agent configuration
@@ -182,10 +183,8 @@ export const AgentProvider = ({ children }) => {
   const value = {
     agentConfig,
     setAgentConfig,
-    updateAgentConfig,
     messages,
     setMessages,
-    addMessage,
     isLoading,
     setIsLoading,
     showYamlButton,
@@ -196,14 +195,18 @@ export const AgentProvider = ({ children }) => {
     setShowKnowledgeUpload,
     uploadingKnowledge,
     setUploadingKnowledge,
-    applyConfigUpdates,
-    updateKnowledgeBase,
-    updateKnowledgeStorage,
-    resetState,
     mcpServers,
     setMcpServers,
     selectedServers,
-    updateMcpServers
+    setSelectedServers,
+    showMcpServerSelection,
+    setShowMcpServerSelection,
+    updateAgentConfig,
+    addMessage,
+    applyConfigUpdates,
+    updateKnowledgeStorage,
+    updateKnowledgeBase,
+    resetState
   };
 
   return (

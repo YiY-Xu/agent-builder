@@ -31,9 +31,8 @@ const TestAgent = () => {
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const logsContainerRef = useRef(null);
-  
-  // Add a new ref for the last log element
   const lastLogElementRef = useRef(null);
+  const inputRef = useRef(null);
   
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -239,6 +238,13 @@ const TestAgent = () => {
       
       // Clear input
       setInputMessage('');
+      
+      // Focus back on the input field
+      if (inputRef.current) {
+        setTimeout(() => {
+          inputRef.current.focus();
+        }, 0);
+      }
       
       // Set loading state
       setIsLoading(true);
@@ -920,9 +926,10 @@ const TestAgent = () => {
             placeholder={agentConfig ? "Type your message..." : "Upload a YAML file to start"}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             disabled={isLoading || !agentConfig || isEditMode}
             rows={1}
+            ref={inputRef}
           />
           
           <button 

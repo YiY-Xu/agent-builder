@@ -19,13 +19,14 @@ const ConfigPanel = () => {
     mcpServers,
     setMcpServers,
     selectedServers,
-    updateMcpServers
+    setSelectedServers,
+    showMcpServerSelection,
+    setShowMcpServerSelection
   } = useAgent();
   const { showYamlButton, yamlContent } = useChat();
   const [previousConfig, setPreviousConfig] = useState({});
   const [changedContent, setChangedContent] = useState({});
   const [showAddServerModal, setShowAddServerModal] = useState(false);
-  const [showMcpServerSelection, setShowMcpServerSelection] = useState(false);
   const [newServer, setNewServer] = useState({ name: '', sse_url: '' });
 
   // Add a ref to track if component has mounted
@@ -34,9 +35,9 @@ const ConfigPanel = () => {
   // Initialize selected servers from agentConfig on mount
   useEffect(() => {
     if (agentConfig.mcp_servers?.length > 0 && selectedServers.length === 0) {
-      updateMcpServers(agentConfig.mcp_servers);
+      setSelectedServers(agentConfig.mcp_servers);
     }
-  }, [agentConfig.mcp_servers, selectedServers.length, updateMcpServers]);
+  }, [agentConfig.mcp_servers, selectedServers.length, setSelectedServers]);
 
   // Load MCP servers on mount with explicit logging
   useEffect(() => {
@@ -90,12 +91,6 @@ const ConfigPanel = () => {
         alert("Error adding server: " + error.message);
       }
     }
-  };
-
-  // Handle MCP server selection completion
-  const handleServerSelectionComplete = (selectedServerNames) => {
-    updateMcpServers(selectedServerNames);
-    setShowMcpServerSelection(false);
   };
 
   // Watch for changes in agentConfig and update changedContent
@@ -183,7 +178,10 @@ const ConfigPanel = () => {
         <MCPServerSelection 
           mcpServers={mcpServers}
           selectedServers={selectedServers}
-          onSelectServers={handleServerSelectionComplete}
+          onSelectServers={(servers) => {
+            setSelectedServers(servers);
+            setShowMcpServerSelection(false);
+          }}
           onCancel={() => setShowMcpServerSelection(false)}
         />
       ) : (
