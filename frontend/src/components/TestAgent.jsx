@@ -500,15 +500,9 @@ const TestAgent = () => {
                 </span>
               </div>
               
-              {knowledgeBaseType === 'llamacloud' && (
+              {knowledgeBaseType && (
                 <div className="knowledge-detail">
                   <strong>Index:</strong> {agentConfig.knowledge_base.index_info}
-                </div>
-              )}
-              
-              {knowledgeBaseType === 'local' && (
-                <div className="knowledge-detail">
-                  <strong>Path:</strong> {agentConfig.knowledge_base.index_info}
                 </div>
               )}
               
