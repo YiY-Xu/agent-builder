@@ -53,35 +53,74 @@ async def test_agent(
         logger.info(f"Testing agent with message: {request.message}")
         logger.info(f"Initial agent config: {request.agent_config}")
         
-        # Get the mode directly from the request config first
-        mode = request.agent_config.get("config", {}).get("mode", "normal")
-        logger.info(f"Initial mode from request: {mode}")
+        # Log MCP servers specifically for debugging
+        if "mcp_servers" in request.agent_config:
+            logger.info(f"MCP servers in request: {request.agent_config['mcp_servers']}")
         
-        # Generate the complete YAML configuration
+        # Generate the complete YAML configuration from the agent config
         yaml_content = await generate_yaml_async(request.agent_config)
         logger.info(f"Generated YAML configuration:\n{yaml_content}")
         
-        # Parse the generated YAML back to a dict to ensure we have all instructions
+        # Parse the generated YAML back to a dict
         complete_config = yaml.safe_load(yaml_content)
+
+        # Log MCP servers after YAML generation
+        if "mcp_servers" in complete_config:
+            logger.info(f"MCP servers after YAML generation: {complete_config['mcp_servers']}")
         
-        # Get the mode from the complete config, as it may have been updated by the YAML service
+        # Determine mode (normal/debug) from final YAML
         mode = complete_config.get("config", {}).get("mode", "normal")
         logger.info(f"Final mode from YAML config: {mode}")
         
-        # Create system prompt using the complete configuration
+        # Basic metadata
         name = complete_config.get("name", "AI Assistant")
         description = complete_config.get("description", "")
         instruction = complete_config.get("instruction", "")
         
-        # Extract tools
+        # Extract normal tools, if any
         tools = complete_config.get("tools", [])
         tools_description = ""
         if tools:
             tools_description = "You have access to the following tools:\n\n"
             for tool in tools:
-                tools_description += f"- {tool.get('name', 'Unknown Tool')}: {tool.get('endpoint', 'No endpoint')}\n"
+                tool_name = tool.get('name', 'Unknown Tool')
+                tool_endpoint = tool.get('endpoint', 'No endpoint')
+                tools_description += f"- {tool_name}: {tool_endpoint}\n"
         
-        # Create the system prompt with explicit mode reminder
+        # Extract MCP servers, if any, and build a description block
+        mcp_servers = complete_config.get("mcp_servers", [])
+        mcp_servers_description = ""
+        if mcp_servers:
+            mcp_servers_description = "You also have access to the following MCP servers:\n\n"
+            for server in mcp_servers:
+                server_name = server.get("name", "Unnamed Server")
+                sse_url = server.get("sse_url", "No SSE URL Provided")
+                mcp_servers_description += f"- **{server_name}** (SSE URL: {sse_url})\n"
+                
+                services = server.get("services", [])
+                for svc in services:
+                    svc_name = svc.get("name", "Unnamed Service")
+                    capabilities = svc.get("capabilities", [])
+                    mcp_servers_description += f"  - Service **{svc_name}** with capabilities: {', '.join(capabilities)}\n"
+                    
+                    endpoints = svc.get("endpoints", [])
+                    for ep in endpoints:
+                        path = ep.get("path", "")
+                        methods = ep.get("methods", [])
+                        desc = ep.get("description", "")
+                        capability = ep.get("capability", "")
+                        mcp_servers_description += (
+                            f"    - Endpoint: `{path}` (methods: {', '.join(methods)})\n"
+                            f"      Description: {desc}\n"
+                            f"      Capability: {capability}\n"
+                        )
+                
+                mcp_servers_description += "\n"
+        
+        # Combine both types of tool information
+        combined_tools_info = (tools_description + "\n" + mcp_servers_description).strip()
+        
+        # Create the system prompt
         system_prompt = f"""
 You are {name}, an AI assistant.
 
@@ -105,14 +144,14 @@ TOOL SELECTION:
 
 {instruction}
 
-{tools_description}
+{combined_tools_info}
 
 Remember to act consistently with your configuration and purpose.
-"""
-        system_prompt = system_prompt.strip()
+""".strip()
+        
         logger.info(f"Generated system prompt:\n{system_prompt}")
         
-        # Format chat history
+        # Construct chat messages
         messages = []
         for msg in request.history:
             messages.append(ChatMessage(
@@ -120,7 +159,7 @@ Remember to act consistently with your configuration and purpose.
                 content=msg["content"]
             ))
         
-        # Add the user's message
+        # User message appended at the end
         user_message = ChatMessage(
             role="user",
             content=request.message
@@ -132,17 +171,14 @@ Remember to act consistently with your configuration and purpose.
             complete_config["knowledge_base"].get("index_info")
         )
         
-        # Always try to retrieve knowledge if a knowledge base exists
         if has_knowledge_base:
             logger.info("Knowledge base exists, attempting retrieval")
             
-            # Get relevance threshold from settings
-            # This threshold (0.0-1.0) determines whether a document is 
-            # relevant enough to include. Higher values mean more strict matching.
+            # Relevance threshold for knowledge retrieval
             relevance_threshold = settings.KNOWLEDGE_RELEVANCE_THRESHOLD
             logger.info(f"Using relevance threshold: {relevance_threshold}")
             
-            # Query the knowledge base for the most relevant document
+            # Query the knowledge base
             retrieved_context = await knowledge_service.query_knowledge_base(
                 request.message, 
                 complete_config,
@@ -164,6 +200,7 @@ Remember to act consistently with your configuration and purpose.
 
 Please use the retrieved knowledge above to help answer my question, and cite the sources if appropriate.
 """
+                # Replace the last message with augmented version
                 messages[-1] = ChatMessage(
                     role="user",
                     content=augmented_message
@@ -177,9 +214,10 @@ Please use the retrieved knowledge above to help answer my question, and cite th
             messages=messages,
             system_prompt=system_prompt
         )
+        
         logger.info(f"Claude's raw response:\n{claude_response}")
         
-        # No need for response reformatting since the instruction specifies the format
+        # Return the final response
         return TestAgentResponse(message=claude_response)
     
     except Exception as e:

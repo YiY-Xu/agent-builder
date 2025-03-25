@@ -208,6 +208,23 @@ const TestAgent = () => {
             parsedConfig.knowledge_base.sanitized_name = sanitizeAgentName(parsedConfig.name);
           }
           
+          // Handle instructions - cleanup any mode instructions section
+          // to prevent duplications when the YAML is regenerated
+          if (parsedConfig.instruction) {
+            console.log('Original instruction:', parsedConfig.instruction);
+            
+            // If there are multiple Mode Instructions sections, keep only the first one
+            const parts = parsedConfig.instruction.split('## Mode Instructions');
+            
+            if (parts.length > 2) {
+              console.log('Found multiple Mode Instructions sections, normalizing...');
+              // Keep the base instruction and first Mode Instructions section
+              parsedConfig.instruction = parts[0] + '## Mode Instructions' + parts[1];
+            }
+            
+            console.log('Normalized instruction:', parsedConfig.instruction);
+          }
+          
           setAgentConfig(parsedConfig);
           setHasKnowledgeBase(hasKnowledge);
           setKnowledgeBaseType(knowledgeType);
@@ -256,10 +273,14 @@ const TestAgent = () => {
       setIsLoading(true);
       setError(null);
       
+      // Create a deep copy of the current agent config
+      const currentConfig = JSON.parse(JSON.stringify(agentConfig));
+      console.log('Sending message with agent config:', currentConfig);
+      
       // Send message to API
       const response = await testAgentChat({
         message: inputMessage,
-        agent_config: agentConfig,
+        agent_config: currentConfig,
         history: messages
       });
       
@@ -318,8 +339,14 @@ const TestAgent = () => {
       setIsSaving(true);
       setError(null);
 
+      // Create a deep copy to avoid reference issues
+      const configToSave = JSON.parse(JSON.stringify(agentConfig));
+      
+      // Log the configuration being saved
+      console.log('Saving configuration:', configToSave);
+
       // Generate new YAML
-      const yamlContent = await generateYaml(agentConfig);
+      const yamlContent = await generateYaml(configToSave);
       
       // Create a new file object with the updated YAML
       const newYamlFile = new File(
@@ -330,6 +357,10 @@ const TestAgent = () => {
       
       setYamlFile(newYamlFile);
       
+      // Parse the YAML back to ensure we have the complete config with any server-side additions
+      const updatedConfig = yaml.load(yamlContent);
+      setAgentConfig(updatedConfig);
+      
       // Clear previous messages - this is important!
       setMessages([]);
       
@@ -337,7 +368,7 @@ const TestAgent = () => {
       setTimeout(() => {
         setMessages([{
           role: 'assistant',
-          content: `Hello! I am ${agentConfig.name || 'your agent'}. ${agentConfig.description || 'How can I help you today?'}${hasKnowledgeBase ? "\n\nI have access to a knowledge base that I can use to answer your questions." : ""}`
+          content: `Hello! I am ${updatedConfig.name || 'your agent'}. ${updatedConfig.description || 'How can I help you today?'}${hasKnowledgeBase ? "\n\nI have access to a knowledge base that I can use to answer your questions." : ""}`
         }, {
           role: 'assistant',
           content: 'Agent configuration updated successfully.'
@@ -822,7 +853,18 @@ const TestAgent = () => {
                 className="download-yaml-button"
                 onClick={async () => {
                   try {
+                    // If in edit mode, save changes first to ensure latest changes are included
+                    if (isEditMode) {
+                      await saveConfigChanges();
+                      // Wait briefly for state to update
+                      await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                    
                     setIsLoading(true);
+                    
+                    // Log current config for debugging
+                    console.log('Downloading YAML with config:', JSON.stringify(agentConfig, null, 2));
+                    
                     const yamlContent = await generateYaml(agentConfig);
                     const fileName = `${agentConfig.name?.replace(/\s+/g, '_').toLowerCase() || 'agent'}_config.yaml`;
                     

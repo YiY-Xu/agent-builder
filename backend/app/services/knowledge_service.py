@@ -750,7 +750,7 @@ class KnowledgeService:
                 "error": str(e)
             }
             
-    async def query_knowledge_base(self, query: str, agent_config: Dict[str, Any], similarity_top_k: int = 1, relevance_threshold: float = 0.7) -> Optional[str]:
+    async def query_knowledge_base(self, query: str, agent_config: Dict[str, Any], similarity_top_k: int = 1, relevance_threshold: float = 0.8) -> Optional[str]:
         """
         Query the knowledge base for relevant information.
         

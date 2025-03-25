@@ -103,7 +103,7 @@
   }
   
   .message-content {
-    max-width: 70%;
+    max-width: 80%;
     padding: 0.75rem;
     border-radius: var(--radius);
   }
@@ -138,6 +138,7 @@
     margin: 0.5rem 0;
     font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
     font-size: 0.875rem;
+    white-space: pre-wrap;
   }
   
   /* Typing indicator */

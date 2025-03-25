@@ -34,7 +34,7 @@ async def generate_yaml_async(agent_config: Dict[str, Any]) -> str:
         # Remove any existing RESPONSE: sections that might interfere
         base_instruction = base_instruction.split("\nRESPONSE:\n")[0].strip()
         
-        # Add debug mode instructions with proper formatting
+        # Add debug mode instructions with proper formatting, but only if they don't already exist
         debug_mode_instructions = """
 ## Mode Instructions
 If operating in debug mode, you must structure your responses as follows:
@@ -74,8 +74,21 @@ In normal mode, provide only the response without the analytical sections."""
 - Reference the capability names when discussing your usage of MCP(Model Context Protocol) servers.
 """
 
-        # Combine all instructions
-        full_instruction = f"{base_instruction}\n\n{debug_mode_instructions}\n\n{important_instructions}"
+        # Combine all instructions, checking for existing sections to avoid duplication
+        full_instruction = base_instruction
+
+        # Check if the instruction already has mode instructions
+        if "## Mode Instructions" not in base_instruction:
+            full_instruction += f"\n\n{debug_mode_instructions}"
+        else:
+            logger.info("Skipping adding mode instructions as they already exist in the base instruction")
+            
+        # Check if the instruction already has the important instructions
+        if "## IMPORTANT:" not in base_instruction and "## MCP(Model Context Protocol) SERVER USAGE:" not in base_instruction:
+            full_instruction += f"\n\n{important_instructions}"
+        else:
+            logger.info("Skipping adding important instructions as they already exist in the base instruction")
+            
         yaml_structure["instruction"] = full_instruction
         
         # Add memory size and other config
@@ -99,23 +112,40 @@ In normal mode, provide only the response without the analytical sections."""
             selected_server_names = agent_config["mcp_servers"]
             logger.info(f"Selected MCP server names: {selected_server_names}")
             
-            try:
-                # Load all available MCP servers with their details
-                all_mcp_servers = await load_mcp_servers()
-                logger.info(f"Loaded {len(all_mcp_servers)} MCP servers")
+            # If the MCP servers are already objects with complete details, use them directly
+            if (isinstance(selected_server_names, list) and 
+                len(selected_server_names) > 0 and 
+                isinstance(selected_server_names[0], dict) and 
+                "name" in selected_server_names[0]):
                 
-                # Filter to get only the selected servers with their complete details
-                yaml_structure["mcp_servers"] = []
-                for server in all_mcp_servers:
-                    if server["name"] in selected_server_names:
-                        # Include the complete server details
-                        yaml_structure["mcp_servers"].append(server)
-                
-                logger.info(f"Added {len(yaml_structure['mcp_servers'])} detailed MCP servers to YAML")
-            except Exception as e:
-                # If there's an error loading MCP servers, use just the names as a fallback
-                logger.error(f"Error loading MCP servers: {e}. Using server names only.")
+                logger.info("MCP servers already have complete details, using them directly")
                 yaml_structure["mcp_servers"] = selected_server_names
+            else:
+                # Otherwise, try to load complete details from the server list
+                try:
+                    # Convert to list of strings if not already
+                    if isinstance(selected_server_names, list) and len(selected_server_names) > 0:
+                        if not isinstance(selected_server_names[0], str):
+                            selected_server_names = [str(server.get("name", server)) 
+                                                    if isinstance(server, dict) else str(server) 
+                                                    for server in selected_server_names]
+                    
+                    # Load all available MCP servers with their details
+                    all_mcp_servers = await load_mcp_servers()
+                    logger.info(f"Loaded {len(all_mcp_servers)} MCP servers")
+                    
+                    # Filter to get only the selected servers with their complete details
+                    yaml_structure["mcp_servers"] = []
+                    for server in all_mcp_servers:
+                        if server["name"] in selected_server_names:
+                            # Include the complete server details
+                            yaml_structure["mcp_servers"].append(server)
+                    
+                    logger.info(f"Added {len(yaml_structure['mcp_servers'])} detailed MCP servers to YAML")
+                except Exception as e:
+                    # If there's an error loading MCP servers, use just the names as a fallback
+                    logger.error(f"Error loading MCP servers: {e}. Using server names only.")
+                    yaml_structure["mcp_servers"] = selected_server_names
         
         # Add knowledge base if available
         if "knowledge_base" in agent_config and agent_config["knowledge_base"]:
