@@ -8,6 +8,7 @@ from app.models.request_models import ChatRequest
 from app.models.response_models import ChatResponse
 from app.utils.config_extractor import extract_config_updates, should_generate_yaml, clean_response
 from app.services.yaml_service import generate_yaml as yaml_generator
+from app.dependencies import get_claude_service
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +17,6 @@ router = APIRouter(
     tags=["chat"],
     responses={404: {"description": "Not found"}},
 )
-
-# Dependency to get ClaudeService instance
-def get_claude_service():
-    return ClaudeService()
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(

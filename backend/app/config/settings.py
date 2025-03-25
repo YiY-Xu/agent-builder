@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     LLAMA_CLOUD_INDEX_PREFIX: str = os.environ.get("LLAMA_CLOUD_INDEX_PREFIX", "agent-builder")
     LLAMA_CLOUD_PROJECT_NAME: str = os.environ.get("LLAMA_CLOUD_PROJECT_NAME", "Default")
     
+    # Knowledge base settings
+    # KNOWLEDGE_RELEVANCE_THRESHOLD - Range from 0.0 to 1.0, higher values mean stricter matching
+    # - Lower values (e.g., 0.5): More documents will be considered relevant, possibly including less precise matches
+    # - Higher values (e.g., 0.8): Only very closely matching documents will be included
+    # Recommended range: 0.6 - 0.8 depending on your knowledge base quality
+    KNOWLEDGE_RELEVANCE_THRESHOLD: float = float(os.getenv("KNOWLEDGE_RELEVANCE_THRESHOLD", "0.7"))
+    
     # File upload settings
     MAX_UPLOAD_SIZE: int = 50 * 1024 * 1024  # 50 MB
     

@@ -6,10 +6,11 @@ import yaml
 from pydantic import BaseModel, Field
 
 from app.services.claude_service import ClaudeService
-from app.services.knowledge_retrieval import KnowledgeRetrievalService
+from app.services.knowledge_service import KnowledgeService
 from app.services.yaml_service import generate_yaml
 from app.models.request_models import ChatMessage
-from app.models.response_models import ChatResponse
+from app.dependencies import get_claude_service, get_knowledge_service
+from app.config.settings import settings
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -31,21 +32,13 @@ class TestAgentRequest(BaseModel):
 class TestAgentResponse(BaseModel):
     message: str = Field(..., description="Agent's response message")
 
-
-# Dependency to get ClaudeService instance
-def get_claude_service():
-    return ClaudeService()
-
-# Dependency to get KnowledgeRetrievalService instance
-def get_knowledge_service():
-    return KnowledgeRetrievalService()
-
+# Use dependencies from app.dependencies instead of local definitions
 
 @router.post("/test-agent", response_model=TestAgentResponse)
 async def test_agent(
     request: TestAgentRequest,
     claude_service: ClaudeService = Depends(get_claude_service),
-    knowledge_service: KnowledgeRetrievalService = Depends(get_knowledge_service)
+    knowledge_service: KnowledgeService = Depends(get_knowledge_service)
 ):
     """
     Test an agent with a loaded YAML configuration
@@ -139,20 +132,26 @@ Remember to act consistently with your configuration and purpose.
             complete_config["knowledge_base"].get("index_info")
         )
         
-        might_need_knowledge = has_knowledge_base and any(
-            keyword in request.message.lower() 
-            for keyword in ["what", "who", "when", "where", "why", "how", "explain", "tell me about", "information"]
-        )
-        
-        # Retrieve knowledge if needed
-        if might_need_knowledge:
-            logger.info("Query might need knowledge, attempting retrieval")
+        # Always try to retrieve knowledge if a knowledge base exists
+        if has_knowledge_base:
+            logger.info("Knowledge base exists, attempting retrieval")
+            
+            # Get relevance threshold from settings
+            # This threshold (0.0-1.0) determines whether a document is 
+            # relevant enough to include. Higher values mean more strict matching.
+            relevance_threshold = settings.KNOWLEDGE_RELEVANCE_THRESHOLD
+            logger.info(f"Using relevance threshold: {relevance_threshold}")
+            
+            # Query the knowledge base for the most relevant document
             retrieved_context = await knowledge_service.query_knowledge_base(
                 request.message, 
-                complete_config
+                complete_config,
+                similarity_top_k=1,  # Only get the most relevant document
+                relevance_threshold=relevance_threshold
             )
+            
             if retrieved_context:
-                logger.info("Adding retrieved knowledge to user message")
+                logger.info("Retrieved relevant document - augmenting user query")
                 augmented_message = f"""
 {request.message}
 
@@ -166,6 +165,9 @@ Please use the retrieved knowledge above to help answer my question, and cite th
                     role="user",
                     content=augmented_message
                 )
+            else:
+                logger.info(f"No relevant documents found above threshold: {relevance_threshold}")
+                logger.info("Proceeding with regular query without knowledge augmentation")
         
         # Call Claude with the custom system prompt
         claude_response = await claude_service.send_message_with_custom_prompt(

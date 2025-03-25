@@ -4,6 +4,7 @@ import logging
 
 from app.services.knowledge_service import KnowledgeService
 from pydantic import BaseModel
+from app.dependencies import get_knowledge_service
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -77,10 +78,6 @@ class KnowledgeBaseConfig(BaseModel):
     project_name: Optional[str] = None
     document_count: Optional[int] = None
     file_names: Optional[List[str]] = None
-
-# Dependency to get KnowledgeService instance
-def get_knowledge_service():
-    return KnowledgeService()
 
 @router.post("/upload-file", response_model=FileUploadResponse)
 async def upload_file(

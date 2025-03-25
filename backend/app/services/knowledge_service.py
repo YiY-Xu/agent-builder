@@ -700,7 +700,7 @@ class KnowledgeService:
                 "error": str(e)
             }
 
-    async def query_agent_knowledge(self, agent_name: str, query_text: str, similarity_top_k: int = 3) -> Dict[str, Any]:
+    async def query_agent_knowledge(self, agent_name: str, storage_type: str, query_text: str, similarity_top_k: int = 3) -> Dict[str, Any]:
         """
         Query the appropriate index for an agent based on what's available.
         This method will automatically determine whether to use a local index or LlamaCloud index.
@@ -721,7 +721,7 @@ class KnowledgeService:
             perm_metadata_path = os.path.join(perm_agent_dir, "metadata.json")
             
             # If permanent storage exists with an index, use that first
-            if os.path.exists(perm_metadata_path):
+            if storage_type == "local" and os.path.exists(perm_metadata_path):
                 with open(perm_metadata_path, 'r') as f:
                     metadata = json.load(f)
                     
@@ -729,17 +729,17 @@ class KnowledgeService:
                     # Use local index
                     return await self.query_local_index(agent_name, query_text, similarity_top_k)
             
-            # Otherwise check for a LlamaCloud index
-            temp_agent_dir = os.path.join(self.temp_upload_dir, sanitized_name)
-            temp_metadata_path = os.path.join(temp_agent_dir, "metadata.json")
-            
-            if os.path.exists(temp_metadata_path):
-                with open(temp_metadata_path, 'r') as f:
-                    metadata = json.load(f)
-                    
-                if metadata.get("index_info"):
-                    # Use LlamaCloud index
-                    return await self.query_llama_cloud_index(agent_name, query_text, similarity_top_k)
+            else: # Otherwise check for a LlamaCloud index
+                temp_agent_dir = os.path.join(self.temp_upload_dir, sanitized_name)
+                temp_metadata_path = os.path.join(temp_agent_dir, "metadata.json")
+                
+                if os.path.exists(temp_metadata_path):
+                    with open(temp_metadata_path, 'r') as f:
+                        metadata = json.load(f)
+                        
+                    if metadata.get("index_info"):
+                        # Use LlamaCloud index
+                        return await self.query_llama_cloud_index(agent_name, query_text, similarity_top_k)
             
             # No index found
             return {
@@ -754,16 +754,18 @@ class KnowledgeService:
                 "error": str(e)
             }
             
-    async def query_knowledge_base(self, query: str, agent_config: Dict[str, Any]) -> Optional[str]:
+    async def query_knowledge_base(self, query: str, agent_config: Dict[str, Any], similarity_top_k: int = 1, relevance_threshold: float = 0.7) -> Optional[str]:
         """
         Query the knowledge base for relevant information.
         
         Args:
             query: User's query
             agent_config: Agent configuration including knowledge base info
+            similarity_top_k: Number of top relevant documents to retrieve (default 1)
+            relevance_threshold: Minimum similarity score threshold for considering a document relevant (0.0-1.0)
             
         Returns:
-            Retrieved context or None if retrieval fails
+            Retrieved context or None if retrieval fails or no relevant documents found
         """
         try:
             # Check if knowledge base is configured
@@ -781,11 +783,27 @@ class KnowledgeService:
             
             logger.info(f"Querying {storage_type} knowledge base for agent {agent_name} with query: {query}")
             
-            # Use the query_agent_knowledge method to automatically select the appropriate index
-            query_result = await self.query_agent_knowledge(agent_name, query)
+            # Use the query_agent_knowledge method with the provided parameters
+            query_result = await self.query_agent_knowledge(agent_name, storage_type, query, similarity_top_k)
             
             if not query_result.get("success", False):
                 logger.warning(f"Query failed: {query_result.get('error', 'Unknown error')}")
+                return None
+            
+            # Check if any of the retrieved documents meet the relevance threshold
+            has_relevant_docs = False
+            source_docs = query_result.get("source_documents", [])
+            
+            if source_docs:
+                for doc in source_docs:
+                    score = doc.get("score")
+                    if score is not None and score >= relevance_threshold:
+                        has_relevant_docs = True
+                        logger.info(f"Found relevant document with score: {score}")
+                        break
+            
+            if not has_relevant_docs:
+                logger.info(f"No documents found that meet relevance threshold of {relevance_threshold}")
                 return None
             
             # Format the response for the agent
