@@ -959,6 +959,31 @@
   margin: 0;
   padding-bottom: 0;
   flex: 1;
+  position: relative;
+  /* Force scrollbar to always appear to prevent layout shifts */
+  scrollbar-width: thin;
+  /* Add overscroll behavior to improve scrolling */
+  overscroll-behavior: contain;
+  /* Remove smooth scrolling to prevent visual scrollbar updates */
+  scroll-behavior: auto;
+}
+
+/* Style scrollbar for WebKit browsers (Chrome, Safari, etc.) */
+.logs-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.logs-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.logs-container::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
+}
+
+.logs-container::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
 }
 
 .logs-info {

@@ -25,11 +25,15 @@ const TestAgent = () => {
   const [activeTab, setActiveTab] = useState('info'); // 'info' or 'logs'
   const [logs, setLogs] = useState([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [initialLogsLoaded, setInitialLogsLoaded] = useState(false);
   
   // References
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const logsContainerRef = useRef(null);
+  
+  // Add a new ref for the last log element
+  const lastLogElementRef = useRef(null);
   
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -40,21 +44,21 @@ const TestAgent = () => {
   
   // Auto-scroll logs to bottom unless user has scrolled up
   useEffect(() => {
-    if (logsContainerRef.current) {
+    if (logsContainerRef.current && activeTab === 'logs') {
       const element = logsContainerRef.current;
       const isScrolledToBottom = element.scrollHeight - element.clientHeight <= element.scrollTop + 50;
       
       if (isScrolledToBottom) {
-        // Use setTimeout to ensure the scroll happens after the DOM update
-        setTimeout(() => {
-          element.scrollTo({
-            top: element.scrollHeight,
-            behavior: 'smooth'
-          });
-        }, 100);
+        // Set scroll immediately without animation to prevent visual scrollbar changes
+        element.scrollTop = element.scrollHeight;
       }
     }
-  }, [logs]);
+    
+    // Scroll to the last log element if it exists
+    if (lastLogElementRef.current) {
+      lastLogElementRef.current.scrollIntoView();
+    }
+  }, [logs, activeTab]);
   
   // Add a scroll event listener to track user scroll position
   useEffect(() => {
@@ -71,57 +75,85 @@ const TestAgent = () => {
     return () => element.removeEventListener('scroll', handleScroll);
   }, []);
   
-  // Initial scroll to bottom when logs are first loaded
-  useEffect(() => {
-    if (logsContainerRef.current && logs.length > 0) {
-      const element = logsContainerRef.current;
-      setTimeout(() => {
-        element.scrollTo({
-          top: element.scrollHeight,
-          behavior: 'smooth'
-        });
-      }, 100);
-    }
-  }, [logs.length]);
-  
   // Load logs when tab changes
   useEffect(() => {
     let eventSource = null;
     let isActive = true;
     
+    // Helper function to filter out unwanted log messages
+    const filterLogs = (logs) => {
+      return logs.filter(log => 
+        !log.includes("Returning 300 log lines") && 
+        !log.includes("Request to /api/logs/stream completed") &&
+        !log.includes("Request to /api/logs/stream") &&
+        !log.includes("Returning 300 log")
+      );
+    };
+    
     const setupSSE = async () => {
       if (activeTab !== 'logs' || !isActive) return;
       
-      setIsLoadingLogs(true);
-      
-      try {
-        // Initial load of logs
-        const response = await fetchLogs();
-        if (response && response.logs && isActive) {
-          setLogs(response.logs);
-        }
+      // If we've already loaded logs once in this session, don't trigger another
+      // full refresh when switching back to the logs tab
+      if (!initialLogsLoaded) {
+        setIsLoadingLogs(true);
         
-        // Set up SSE connection
-        eventSource = connectToLogsSSE((data) => {
-          if (data.logs && isActive) {
-            setLogs(prevLogs => {
-              // Filter out duplicate logs
-              const newLogs = data.logs.filter(newLog => 
-                !prevLogs.some(prevLog => prevLog === newLog)
-              );
-              // Combine and keep only the latest 300 lines
-              const combinedLogs = [...prevLogs, ...newLogs];
-              return combinedLogs.slice(-300);
-            });
+        try {
+          // Initial load of logs
+          const response = await fetchLogs();
+          if (response && response.logs && isActive) {
+            // Filter logs before setting them
+            setLogs(filterLogs(response.logs));
+            setInitialLogsLoaded(true);
+            
+            // Force scroll to bottom after logs are loaded - with a slightly longer delay
+            // to ensure DOM has been completely updated
+            setTimeout(() => {
+              if (logsContainerRef.current) {
+                logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+                
+                // Double-check with another setTimeout to ensure scrolling happens
+                setTimeout(() => {
+                  if (logsContainerRef.current) {
+                    logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+                  }
+                }, 100);
+              }
+            }, 200);
           }
-        });
-      } catch (error) {
-        console.error('Error setting up logs:', error);
-      } finally {
-        if (isActive) {
-          setIsLoadingLogs(false);
+        } catch (error) {
+          console.error('Error setting up logs:', error);
+        } finally {
+          if (isActive) {
+            setIsLoadingLogs(false);
+          }
         }
       }
+      
+      // Set up SSE connection for real-time updates
+      eventSource = connectToLogsSSE((data) => {
+        if (data.logs && isActive) {
+          setLogs(prevLogs => {
+            // Filter new logs first
+            const filteredNewLogs = filterLogs(data.logs);
+            
+            // Filter out duplicate logs
+            const newLogs = filteredNewLogs.filter(newLog => 
+              !prevLogs.some(prevLog => prevLog === newLog)
+            );
+            
+            // Only update logs if there are actually new logs to add
+            // This prevents unnecessary re-renders
+            if (newLogs.length === 0) {
+              return prevLogs; // Return existing logs array to prevent re-render
+            }
+            
+            // Combine and keep only the latest 300 lines
+            const combinedLogs = [...prevLogs, ...newLogs];
+            return combinedLogs.slice(-300);
+          });
+        }
+      });
     };
     
     setupSSE();
@@ -133,7 +165,7 @@ const TestAgent = () => {
         eventSource.close();
       }
     };
-  }, [activeTab]);
+  }, [activeTab, initialLogsLoaded]);
   
   // Handle file upload
   const handleFileUpload = (event) => {
@@ -532,6 +564,12 @@ const TestAgent = () => {
   const renderSystemLogsTab = () => {
     // Format each log line to extract just the time portion
     const formatLogLine = (log) => {
+      // Skip certain types of logs that aren't useful to display
+      if (log.includes("Returning 300 log lines") || 
+          log.includes("Request to /api/logs/stream completed")) {
+        return null;
+      }
+      
       // Match pattern like "2025-03-24 19:01:51,710 - app.services.claude_service - INFO - Message"
       const match = log.match(/\d{4}-\d{2}-\d{2}\s+(\d{2}:\d{2}:\d{2}),\d{3}\s+-\s+(\S+)\s+-\s+(\S+)\s+-\s+(.*)/);
       
@@ -576,6 +614,18 @@ const TestAgent = () => {
       return log;
     };
 
+    // Helper function to set the ref on the last log element
+    const setLastLogRef = (element) => {
+      lastLogElementRef.current = element;
+      
+      // Force scroll to bottom after render
+      setTimeout(() => {
+        if (logsContainerRef.current) {
+          logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+        }
+      }, 50);
+    };
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: '1' }}>
         <div className="logs-container" ref={logsContainerRef}>
@@ -588,11 +638,34 @@ const TestAgent = () => {
               <span>Loading logs...</span>
             </div>
           ) : logs.length > 0 ? (
-            logs.map((log, index) => (
-              <div key={index} className="log-line">
-                {formatLogLine(log)}
-              </div>
-            ))
+            <>
+              {logs.map((log, index) => {
+                const formattedLog = formatLogLine(log);
+                // Skip rendering this log line if formatLogLine returned null
+                return formattedLog ? (
+                  <div 
+                    key={index} 
+                    className="log-line"
+                    ref={index === logs.length - 1 ? setLastLogRef : null}
+                  >
+                    {formattedLog}
+                  </div>
+                ) : null;
+              })}
+              {/* Dedicated scroll anchor element at the bottom */}
+              <div 
+                id="logs-bottom-anchor" 
+                style={{ height: '1px', width: '100%' }}
+                ref={(el) => {
+                  if (el && logs.length > 0) {
+                    // Force scroll to this element after render
+                    setTimeout(() => {
+                      el.scrollIntoView();
+                    }, 150);
+                  }
+                }}
+              />
+            </>
           ) : (
             <div className="no-logs">No logs available</div>
           )}
@@ -601,13 +674,36 @@ const TestAgent = () => {
     );
   };
   
-  // Refresh logs function
+  // Refresh logs function - called manually by the user
   const refreshLogs = async () => {
     setIsLoadingLogs(true);
     try {
       const response = await fetchLogs();
       if (response && response.logs) {
-        setLogs(response.logs);
+        // Filter logs to remove system messages - use same filter as the SSE function
+        const filteredLogs = response.logs.filter(log => 
+          !log.includes("Returning 300 log lines") && 
+          !log.includes("Request to /api/logs/stream completed") &&
+          !log.includes("Request to /api/logs/stream") &&
+          !log.includes("Returning 300 log")
+        );
+        
+        setLogs(filteredLogs);
+        setInitialLogsLoaded(true);
+        
+        // Force immediate scroll to bottom with multiple attempts
+        setTimeout(() => {
+          if (logsContainerRef.current) {
+            logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+            
+            // Double-check with another setTimeout to ensure scrolling happens
+            setTimeout(() => {
+              if (logsContainerRef.current) {
+                logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+              }
+            }, 100);
+          }
+        }, 200);
       }
     } catch (error) {
       console.error('Error refreshing logs:', error);
@@ -615,6 +711,30 @@ const TestAgent = () => {
       setIsLoadingLogs(false);
     }
   };
+
+  // Effect specifically for first-time tab activation
+  useEffect(() => {
+    // This effect only runs when the logs tab is first activated
+    if (activeTab === 'logs') {
+      // Use a series of scroll attempts with increasing delays
+      // to ensure logs scroll to bottom on first load
+      const scrollTimes = [50, 150, 300, 500, 800];
+      
+      scrollTimes.forEach(delay => {
+        setTimeout(() => {
+          if (logsContainerRef.current) {
+            logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+          }
+          
+          // Also try to scroll to the bottom anchor element if it exists
+          const bottomAnchor = document.getElementById('logs-bottom-anchor');
+          if (bottomAnchor) {
+            bottomAnchor.scrollIntoView();
+          }
+        }, delay);
+      });
+    }
+  }, [activeTab]);
 
   return (
     <div className="agent-builder-container test-agent">
@@ -779,7 +899,10 @@ const TestAgent = () => {
               className={`tab-button ${activeTab === 'logs' ? 'active' : ''}`}
               onClick={() => {
                 setActiveTab('logs');
-                refreshLogs();
+                // Only refresh logs if they haven't been loaded yet
+                if (!initialLogsLoaded) {
+                  refreshLogs();
+                }
               }}
               disabled={isLoading}
             >
