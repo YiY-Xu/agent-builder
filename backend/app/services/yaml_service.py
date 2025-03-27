@@ -18,9 +18,6 @@ async def generate_yaml_async(agent_config: Dict[str, Any]) -> str:
         Formatted YAML as a string
     """
     try:
-        print("--------------------------------")
-        print(json.dumps(agent_config))
-        print("--------------------------------")
         # Create the YAML structure
         yaml_structure = {
             "name": agent_config.get("name", "Unnamed Agent"),

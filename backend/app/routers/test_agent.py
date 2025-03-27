@@ -4,12 +4,14 @@ import logging
 import re
 import yaml
 from pydantic import BaseModel, Field
+import json
 
 from app.services.claude_service import ClaudeService
 from app.services.knowledge_service import KnowledgeService
 from app.services.yaml_service import generate_yaml_async
+from app.services.tools_service import ToolsService
 from app.models.request_models import ChatMessage
-from app.dependencies import get_claude_service, get_knowledge_service
+from app.dependencies import get_claude_service, get_knowledge_service, get_tools_service
 from app.config.settings import settings
 
 # Set up logging
@@ -38,7 +40,8 @@ class TestAgentResponse(BaseModel):
 async def test_agent(
     request: TestAgentRequest,
     claude_service: ClaudeService = Depends(get_claude_service),
-    knowledge_service: KnowledgeService = Depends(get_knowledge_service)
+    knowledge_service: KnowledgeService = Depends(get_knowledge_service),
+    tools_service: ToolsService = Depends(get_tools_service)
 ):
     """
     Test an agent with a loaded YAML configuration
@@ -47,7 +50,8 @@ async def test_agent(
     - Creates a custom system prompt based on the agent configuration
     - Retrieves relevant information from knowledge base if applicable
     - Sends the message to Claude with the agent-specific prompt
-    - Returns Claude's response
+    - If Claude makes tool calls, executes them and sends results back to Claude
+    - Returns Claude's final response
     """
     try:
         logger.info(f"Testing agent with message: {request.message}")
@@ -217,7 +221,91 @@ Please use the retrieved knowledge above to help answer my question, and cite th
         
         logger.info(f"Claude's raw response:\n{claude_response}")
         
-        # Return the final response
+        # Check if the response contains tool calls
+        if '[TOOLS SELECTED]' in claude_response:
+            logger.info("Tool calls detected, processing and sending back to Claude")
+            
+            # Extract tool calls
+            tool_calls = tools_service._extract_tool_calls(claude_response)
+            
+            if tool_calls:
+                # Store the initial response
+                initial_response = claude_response
+                
+                # Process tool calls
+                results = []
+                for tool_call_json, tool_call_section in tool_calls:
+                    try:
+                        # Execute the tool call
+                        result = await tools_service._execute_tool_call(tool_call_json)
+                        
+                        # Format the result for inclusion
+                        action_type = tool_call_json.get("action", "unknown")
+                        endpoint = tool_call_json.get("endpoint", "unknown")
+                        formatted_result = json.dumps(result, indent=2)
+                        
+                        results.append({
+                            "tool_call": tool_call_json,
+                            "result": result,
+                            "formatted": f"[TOOL RESULT: {action_type.upper()} call to {endpoint}]\n{formatted_result}\n[/TOOL RESULT]"
+                        })
+                        
+                    except Exception as e:
+                        logger.error(f"Error processing tool call: {str(e)}", exc_info=True)
+                        error_message = f"Error: {str(e)}"
+                        
+                        results.append({
+                            "tool_call": tool_call_json,
+                            "error": str(e),
+                            "formatted": f"[TOOL ERROR: {tool_call_json.get('action', 'unknown').upper()} call to {tool_call_json.get('endpoint', 'unknown')}]\n{error_message}\n[/TOOL ERROR]"
+                        })
+                
+                # Combine the results into a message to send back to Claude
+                tool_results_message = "\n\n".join([r["formatted"] for r in results])
+                
+                # Add a follow-up message requesting Claude to continue with the results
+                follow_up = """
+Based on the tool results above, please provide your final answer to the user's query. 
+Incorporate the data from the API results in your response.
+"""
+                
+                # Send the results back to Claude
+                messages.append(ChatMessage(
+                    role="assistant",
+                    content=claude_response
+                ))
+                
+                messages.append(ChatMessage(
+                    role="user",
+                    content=f"{tool_results_message}\n\n{follow_up}"
+                ))
+                
+                # Get Claude's follow-up response
+                final_response = await claude_service.send_message_with_custom_prompt(
+                    messages=messages,
+                    system_prompt=system_prompt
+                )
+                
+                logger.info(f"Claude's final response with tool results:\n{final_response}")
+                
+                # Create a combined response showing the process
+                combined_response = f"""
+I needed to gather some information to answer your question.
+
+{initial_response}
+
+{tool_results_message}
+
+Based on this information:
+
+{final_response}
+""".strip()
+                
+                return TestAgentResponse(message=combined_response)
+            else:
+                logger.warning("Tool call tags detected but no valid tool calls found")
+        
+        # If no tool calls or no valid ones, just return the original response
         return TestAgentResponse(message=claude_response)
     
     except Exception as e:

@@ -1,6 +1,7 @@
 [
   {
     "name": "Flight Booking Service",
+    "base_url": "http://localhost:5001",
     "sse_url": "http://localhost:5001/api/events",
     "last_connected": "2025-03-21T15:11:55.328095",
     "services": [
@@ -55,6 +56,7 @@
   },
   {
     "name": "Car Rental Service",
+    "base_url": "http://localhost:5002",
     "sse_url": "http://localhost:5002/api/events",
     "last_connected": "2025-03-25T17:15:44.422502",
     "services": [
@@ -118,6 +120,7 @@
   },
   {
     "name": "Hotel Booking Service",
+    "base_url": "http://localhost:5004",
     "sse_url": "http://localhost:5004/api/events",
     "last_connected": "2025-03-21T15:15:40.013231",
     "services": [
@@ -199,6 +202,7 @@
   },
   {
     "name": "Weather Forecast Service",
+    "base_url": "http://localhost:5003",
     "sse_url": "http://localhost:5003/api/events",
     "last_connected": "2025-03-21T15:16:56.998438",
     "services": [

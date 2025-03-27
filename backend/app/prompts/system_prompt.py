@@ -26,14 +26,39 @@ def get_system_prompt(agent_config: Union[Dict[str, Any], BaseModel]) -> str:
         config_json = json.dumps(config_dict, indent=2)
         
         logger.info(f"Generating system prompt with config: {config_json}")
-        
+
+        # Check if tools have been added
+        has_tools = (config_dict.get("tools", []) or config_dict.get("mcp_servers", [])) is not None
+        tools_selection_prompt = """
+8. **Tools Selection** - Define how you will response to the user's query so I can parse your response and make the API call. 
+   - When an action involves calling a tool or an MCP server endpoint, provide a structured JSON response in between of [TOOLS SELECTED] and [/TOOLS SELECTED].
+   - The structured response must include the following keys:
+     - action: indicates the type of call ('tool' or 'mcp')
+     - endpoint: the Full URL or path of the API to be called : base_url + endpoint
+     - method: the HTTP method (e.g., GET, POST)
+     - parameters: an object with all required parameters for the API call
+   - For example, a flight search call should look like:
+     [TOOLS SELECTED]
+      {
+        \"action\": \"mcp\",
+        \"endpoint\": \"https://api.flight.com/api/flights/search\",
+        \"method\": \"GET\",
+        \"parameters\": {
+          \"origin\": \"JFK\",
+          \"destination\": \"LAX\",
+          \"date\": \"2025-04-15\"
+        }
+      }
+    [/TOOLS SELECTED]
+   - This ensures that your output is fully parsable and that I can extract the endpoint and parameters to make the API call.
+""" if has_tools else ""
         # Check if knowledge base has been added
         has_knowledge_base = config_dict.get("knowledge_base", {}).get("index_info") is not None
         knowledge_base_prompt = ""
         
         if has_knowledge_base:
             knowledge_base_prompt = """
-8. **Knowledge Base** - External documents to help the agent provide better responses
+9. **Knowledge Base** - External documents to help the agent provide better responses
 """
         else:
             knowledge_base_prompt = ""
@@ -97,7 +122,9 @@ Guide the user through collecting the following information in a conversational 
 4. **Agent Memory Size** - How many past messages the agent should remember (default is 10)
 5. **Agent Tools** - External APIs or tools the agent can use (format: "API Name: Endpoint")
 6. **Agent MCP(Model Context Protocol) Servers** - MCP(Model Context Protocol) servers the agent can use, Each service contains a unique identifier, name, list of capabilities, and multiple endpoints. Endpoints specify paths, HTTP methods, descriptions, and parameter types (query, path, body) 
-7. **Agent Mode** - Whether the agent operates in "normal" mode or "debug" mode (default is "normal"){knowledge_base_prompt}
+7. **Agent Mode** - Whether the agent operates in "normal" mode or "debug" mode (default is "normal")
+{tools_selection_prompt}
+{knowledge_base_prompt}
 
 ## Current Agent Configuration
 
