@@ -56,10 +56,10 @@
   {
     "name": "Car Rental Service",
     "sse_url": "http://localhost:5002/api/events",
-    "last_connected": "2025-03-21T15:14:05.582034",
+    "last_connected": "2025-03-25T17:15:44.422502",
     "services": [
       {
-        "id": "8551e521-338b-4bc6-b4d8-13fe6cf8cc0a",
+        "id": "710c2ef8-e916-4698-ac18-f08c38242d21",
         "name": "car-rental",
         "capabilities": [
           "search_cars",

@@ -94,7 +94,7 @@ In normal mode, provide only the response without the analytical sections."""
         # Add memory size and other config
         yaml_structure["config"] = {
             "memory_size": agent_config.get("memory_size", 10),
-            "mode": agent_config.get("config", {}).get("mode", "normal"),  # Get mode from config object
+            "mode": agent_config.get("mode", agent_config.get("config", {}).get("mode", "normal")),  # Get mode from top level first, fall back to config object
             "claude_model": "claude-3-7-sonnet-20250219"  # Default model
         }
         
