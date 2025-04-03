@@ -106,9 +106,7 @@ In normal mode, provide only the response without the analytical sections."""
         
         # Add MCP servers if any
         if "mcp_servers" in agent_config and agent_config["mcp_servers"]:
-            selected_server_names = agent_config["mcp_servers"]
-            logger.info(f"Selected MCP server names: {selected_server_names}")
-            
+            selected_server_names = agent_config["mcp_servers"]            
             # If the MCP servers are already objects with complete details, use them directly
             if (isinstance(selected_server_names, list) and 
                 len(selected_server_names) > 0 and 

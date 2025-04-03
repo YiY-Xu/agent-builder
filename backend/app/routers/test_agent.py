@@ -54,75 +54,28 @@ async def test_agent(
     - Returns Claude's final response
     """
     try:
-        logger.info(f"Testing agent with message: {request.message}")
+        logger.info(f"--------------------------------")
         logger.info(f"Initial agent config: {request.agent_config}")
-        
-        # Log MCP servers specifically for debugging
-        if "mcp_servers" in request.agent_config:
-            logger.info(f"MCP servers in request: {request.agent_config['mcp_servers']}")
+        logger.info(f"--------------------------------")
         
         # Generate the complete YAML configuration from the agent config
         yaml_content = await generate_yaml_async(request.agent_config)
-        logger.info(f"Generated YAML configuration:\n{yaml_content}")
+        logger.debug(f"Generated YAML configuration:\n{yaml_content}")
         
         # Parse the generated YAML back to a dict
         complete_config = yaml.safe_load(yaml_content)
-
-        # Log MCP servers after YAML generation
-        if "mcp_servers" in complete_config:
-            logger.info(f"MCP servers after YAML generation: {complete_config['mcp_servers']}")
         
         # Determine mode (normal/debug) from final YAML
         mode = complete_config.get("config", {}).get("mode", "normal")
-        logger.info(f"Final mode from YAML config: {mode}")
+        logger.info(f"Current mode from YAML config: {mode}")
         
         # Basic metadata
         name = complete_config.get("name", "AI Assistant")
         description = complete_config.get("description", "")
         instruction = complete_config.get("instruction", "")
         
-        # Extract normal tools, if any
-        tools = complete_config.get("tools", [])
-        tools_description = ""
-        if tools:
-            tools_description = "You have access to the following tools:\n\n"
-            for tool in tools:
-                tool_name = tool.get('name', 'Unknown Tool')
-                tool_endpoint = tool.get('endpoint', 'No endpoint')
-                tools_description += f"- {tool_name}: {tool_endpoint}\n"
-        
-        # Extract MCP servers, if any, and build a description block
-        mcp_servers = complete_config.get("mcp_servers", [])
-        mcp_servers_description = ""
-        if mcp_servers:
-            mcp_servers_description = "You also have access to the following MCP servers:\n\n"
-            for server in mcp_servers:
-                server_name = server.get("name", "Unnamed Server")
-                sse_url = server.get("sse_url", "No SSE URL Provided")
-                mcp_servers_description += f"- **{server_name}** (SSE URL: {sse_url})\n"
-                
-                services = server.get("services", [])
-                for svc in services:
-                    svc_name = svc.get("name", "Unnamed Service")
-                    capabilities = svc.get("capabilities", [])
-                    mcp_servers_description += f"  - Service **{svc_name}** with capabilities: {', '.join(capabilities)}\n"
-                    
-                    endpoints = svc.get("endpoints", [])
-                    for ep in endpoints:
-                        path = ep.get("path", "")
-                        methods = ep.get("methods", [])
-                        desc = ep.get("description", "")
-                        capability = ep.get("capability", "")
-                        mcp_servers_description += (
-                            f"    - Endpoint: `{path}` (methods: {', '.join(methods)})\n"
-                            f"      Description: {desc}\n"
-                            f"      Capability: {capability}\n"
-                        )
-                
-                mcp_servers_description += "\n"
-        
-        # Combine both types of tool information
-        combined_tools_info = (tools_description + "\n" + mcp_servers_description).strip()
+        # Generate tools description using the tools service
+        combined_tools_info = tools_service.generate_tools_description(complete_config)
         
         # Create the system prompt
         system_prompt = f"""
@@ -153,7 +106,9 @@ TOOL SELECTION:
 Remember to act consistently with your configuration and purpose.
 """.strip()
         
+        logger.info(f"--------------------------------")
         logger.info(f"Generated system prompt:\n{system_prompt}")
+        logger.info(f"--------------------------------")
         
         # Construct chat messages
         messages = []
@@ -294,9 +249,7 @@ I needed to gather some information to answer your question.
 
 {initial_response}
 
-{tool_results_message}
-
-Based on this information:
+Based on the information I gathered:
 
 {final_response}
 """.strip()
@@ -312,53 +265,6 @@ Based on this information:
         logger.error(f"Error testing agent: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error testing agent: {str(e)}")
 
-
-def create_agent_prompt(agent_config: Dict[str, Any]) -> str:
-    """
-    Create a system prompt based on the agent configuration
-    
-    Args:
-        agent_config: Agent configuration from YAML
-        
-    Returns:
-        System prompt for Claude
-    """
-    # Extract configuration values
-    name = agent_config.get("name", "AI Assistant")
-    description = agent_config.get("description", "")
-    instruction = agent_config.get("instruction", "")
-    
-    # Extract memory size and mode from config
-    memory_size = 10  # Default
-    mode = "normal"   # Default
-    if "config" in agent_config:
-        memory_size = agent_config["config"].get("memory_size", memory_size)
-        mode = agent_config["config"].get("mode", mode)
-    elif "memory_size" in agent_config:
-        memory_size = agent_config["memory_size"]
-    
-    # Extract tools
-    tools = agent_config.get("tools", [])
-    tools_description = ""
-    if tools:
-        tools_description = "You have access to the following tools:\n\n"
-        for tool in tools:
-            tools_description += f"- {tool.get('name', 'Unknown Tool')}: {tool.get('endpoint', 'No endpoint')}\n"
-    
-    # Create the agent prompt
-    prompt = f"""
-You are {name}, an AI assistant.
-
-{description}
-
-{instruction}
-
-{tools_description}
-
-Remember to act consistently with your configuration and purpose.
-"""
-    
-    return prompt.strip()
 
 class AgentConfig(BaseModel):
     config: Dict[str, Any] = Field(..., description="Agent configuration")

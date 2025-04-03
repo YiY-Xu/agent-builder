@@ -16,6 +16,59 @@ class ToolsService:
         """Initialize the tools service."""
         self.http_client = httpx.AsyncClient(timeout=30.0)  # 30 second timeout
     
+    def generate_tools_description(self, agent_config: Dict[str, Any]) -> str:
+        """
+        Generate a description of available tools and MCP servers from the agent configuration.
+        
+        Args:
+            agent_config: Complete agent configuration
+            
+        Returns:
+            Formatted description of available tools and MCP servers
+        """
+        # Extract normal tools, if any
+        tools = agent_config.get("tools", [])
+        tools_description = ""
+        if tools:
+            tools_description = "You have access to the following tools:\n\n"
+            for tool in tools:
+                tool_name = tool.get('name', 'Unknown Tool')
+                tool_endpoint = tool.get('endpoint', 'No endpoint')
+                tools_description += f"- {tool_name}: {tool_endpoint}\n"
+        
+        # Extract MCP servers, if any, and build a description block
+        mcp_servers = agent_config.get("mcp_servers", [])
+        mcp_servers_description = ""
+        if mcp_servers:
+            mcp_servers_description = "You also have access to the following MCP servers:\n\n"
+            for server in mcp_servers:
+                server_name = server.get("name", "Unnamed Server")
+                # sse_url = server.get("sse_url", "No SSE URL Provided")
+                # mcp_servers_description += f"- **{server_name}** (SSE URL: {sse_url})\n"
+                
+                services = server.get("services", [])
+                for svc in services:
+                    svc_name = svc.get("name", "Unnamed Service")
+                    capabilities = svc.get("capabilities", [])
+                    mcp_servers_description += f"  - Service **{svc_name}** with capabilities: {', '.join(capabilities)}\n"
+                    
+                    endpoints = svc.get("endpoints", [])
+                    for ep in endpoints:
+                        path = ep.get("path", "")
+                        methods = ep.get("methods", [])
+                        desc = ep.get("description", "")
+                        capability = ep.get("capability", "")
+                        mcp_servers_description += (
+                            f"    - Endpoint: `{path}` (methods: {', '.join(methods)})\n"
+                            f"      Description: {desc}\n"
+                            f"      Capability: {capability}\n"
+                        )
+                
+                mcp_servers_description += "\n"
+        
+        # Combine both types of tool information
+        return (tools_description + "\n" + mcp_servers_description).strip()
+    
     async def process_tool_calls(self, claude_response: str) -> str:
         """
         Process any tool calls in the Claude response.
