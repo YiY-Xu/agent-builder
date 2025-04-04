@@ -43,6 +43,7 @@ class ToolsService:
             mcp_servers_description = "You also have access to the following MCP servers:\n\n"
             for server in mcp_servers:
                 server_name = server.get("name", "Unnamed Server")
+                base_url = server.get("base_url", "No Base URL Provided")
                 # sse_url = server.get("sse_url", "No SSE URL Provided")
                 # mcp_servers_description += f"- **{server_name}** (SSE URL: {sse_url})\n"
                 
@@ -59,6 +60,7 @@ class ToolsService:
                         desc = ep.get("description", "")
                         capability = ep.get("capability", "")
                         mcp_servers_description += (
+                            f"    - Base URL: **{base_url}**\n"
                             f"    - Endpoint: `{path}` (methods: {', '.join(methods)})\n"
                             f"      Description: {desc}\n"
                             f"      Capability: {capability}\n"
